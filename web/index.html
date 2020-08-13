@@ -1,0 +1,52 @@
+<html lang="en">
+  <head>
+    <!-- Google Sign-in -->
+    <meta name="google-signin-scope" content="profile email">
+    <meta name="google-signin-client_id" content="297705140796-41v2ra13t7mm8uvu2dp554ov1btt80dg.apps.googleusercontent.com">
+    <script src="https://apis.google.com/js/platform.js" async defer></script>
+
+    <!-- Swagger UI -->
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@3.12.1/swagger-ui.css">
+    <script src="https://unpkg.com/swagger-ui-dist@3/swagger-ui-bundle.js" charset="UTF-8"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@3.12.1/swagger-ui-standalone-preset.js"></script>
+  </head>
+  <body>
+    <!-- Google Sign-in -->
+    <div class="g-signin2" data-onsuccess="onSignIn" data-theme="dark"></div>
+    <a href="#" onclick="signOut();">Sign out</a>
+    <script>
+      function onSignIn(googleUser) {
+        var id_token = googleUser.getAuthResponse().id_token;
+        console.log("ID Token: " + id_token);
+      }
+      function signOut() {
+        var auth2 = gapi.auth2.getAuthInstance();
+        auth2.signOut().then(function () {
+          console.log('User signed out.');
+        });
+      }
+    </script>
+
+    <!-- Swagger UI -->
+    <div id="swagger-ui"></div>
+    <script>
+      window.onload = function() {
+        const ui = SwaggerUIBundle({
+          "dom_id": "#swagger-ui",
+          deepLinking: true,
+          presets: [
+            SwaggerUIBundle.presets.apis,
+            SwaggerUIStandalonePreset
+          ],
+          plugins: [
+            SwaggerUIBundle.plugins.DownloadUrl
+          ],
+          layout: "StandaloneLayout",
+          validatorUrl: null,
+          url: "docs/openapi.yml",
+        })
+        window.ui = ui
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,132 @@
+openapi: 3.0.3
+info:
+  title: Robokache
+  description: Q&A store for ROBOKOP
+  version: 1.0.0
+  contact:
+    email: patrick@covar.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+security:
+  - google: []
+paths:
+  /api/questions:
+    post:
+      summary: Create a question
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: string
+      responses:
+        '201':
+          description: Question created
+          content:
+            application/json:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+    get:
+      summary: Get questions
+      responses:
+        '200':
+          description: Questions
+          content:
+            application/json:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+  /api/questions/{id}:
+    get:
+      summary: Get question by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Question
+          content:
+            application/json:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NoSuchDocument'
+  /api/answers/{id}:
+    get:
+      summary: Get answer by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Answer
+          content:
+            application/json:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NoSuchDocument'
+  /api/questions/{question_id}/answers:
+    post:
+      summary: Create an answer
+      parameters:
+        - name: question_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: string
+      responses:
+        '201':
+          description: Answer created
+          content:
+            application/json:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+    get:
+      summary: Get answers by question ID
+      parameters:
+        - name: question_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Answers
+          content:
+            application/json:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+components:
+  securitySchemes:
+    google:
+      type: http
+      scheme: bearer
+      bearerFormat: jwt
+  reponses:
+    UnauthorizedError:
+      description: Access token is missing or invalid
+    NoSuchDocument:
+      description: Document ID not found
