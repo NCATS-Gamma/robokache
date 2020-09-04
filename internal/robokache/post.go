@@ -36,7 +36,7 @@ func PostQuestion(userEmail string, question Question) error {
 	}
 
 	// Create question file
-	err = ioutil.WriteFile("data/"+question.ID+".json", []byte(question.Data), 0644)
+	err = ioutil.WriteFile(dataDir+"/"+question.ID+".json", []byte(question.Data), 0644)
 	return err
 }
 
@@ -70,6 +70,6 @@ func PostAnswer(userEmail string, answer Answer) error {
 	}
 
 	// Add answer file
-	err = ioutil.WriteFile("data/"+answer.ID+".json", []byte(answer.Data), 0644)
+	err = ioutil.WriteFile(dataDir+"/"+answer.ID+".json", []byte(answer.Data), 0644)
 	return err
 }

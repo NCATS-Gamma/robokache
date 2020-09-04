@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"path/filepath"
 
 	_ "github.com/mattn/go-sqlite3" // makes database/sql point to SQLite
 )
@@ -84,7 +83,7 @@ func GetQuestion(userEmail string, id string) (map[string]interface{}, error) {
 		fatal(err)
 
 		// Read associated JSON file
-		data, err := ioutil.ReadFile(filepath.Join("data", id+".json"))
+		data, err := ioutil.ReadFile(dataDir + "/" + id + ".json")
 		check(err)
 
 		// Return question
@@ -179,7 +178,7 @@ func GetAnswer(userEmail string, id string) (map[string]interface{}, error) {
 		fatal(err)
 
 		// Read associated JSON file
-		data, err := ioutil.ReadFile(filepath.Join("data", id+".json"))
+		data, err := ioutil.ReadFile(dataDir + "/" + id + ".json")
 		check(err)
 
 		answer := map[string]interface{}{

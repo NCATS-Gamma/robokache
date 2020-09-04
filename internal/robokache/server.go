@@ -24,10 +24,6 @@ func fatal(err error) {
 	}
 }
 
-const (
-	dbFile = "./data/q&a.db"
-)
-
 // Question represents a user's question
 type Question struct {
 	ID         string
@@ -223,8 +219,8 @@ func SetupRouter() *gin.Engine {
 
 // SetupDB sets up the SQLite database
 func SetupDB() {
-	os.RemoveAll("data/")
-	os.Mkdir("data/", 0755)
+	os.RemoveAll(dataDir)
+	os.Mkdir(dataDir, 0755)
 
 	db, err := sql.Open("sqlite3", dbFile)
 	if err != nil {
