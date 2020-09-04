@@ -1,4 +1,4 @@
-package main
+package robokache
 
 import (
 	"bytes"
@@ -145,7 +145,7 @@ func TestPostQuestion(t *testing.T) {
 }
 
 func TestGetAnswers(t *testing.T) {
-	w := performRequest(router, "GET", "/api/questions/0/answers", signedString, nil)
+	w := performRequest(router, "GET", "/api/answers?question_id=0", signedString, nil)
 	if !assert.Equal(t, http.StatusOK, w.Code) {
 		return
 	}
@@ -166,7 +166,7 @@ func TestGetAnswer(t *testing.T) {
 
 func TestPostAnswer(t *testing.T) {
 	requestBody := "test answer"
-	w := performRequest(router, "POST", "/api/questions/0/answers", signedString, &requestBody)
+	w := performRequest(router, "POST", "/api/answers?question_id=0", signedString, &requestBody)
 	if !assert.Equal(t, http.StatusCreated, w.Code) {
 		return
 	}
@@ -182,6 +182,6 @@ func TestBadToken(t *testing.T) {
 
 func TestNoSuchQuestion(t *testing.T) {
 	requestBody := "test answer"
-	w := performRequest(router, "POST", "/api/questions/404/answers", signedString, &requestBody)
+	w := performRequest(router, "POST", "/api/answers?id=404", signedString, &requestBody)
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }

@@ -109,12 +109,12 @@ func SetupRouter() *gin.Engine {
 			// Return
 			c.JSON(200, questions)
 		})
-		authorized.GET("/questions/:id/answers", func(c *gin.Context) {
+		authorized.GET("/answers", func(c *gin.Context) {
 			// Get user
 			userEmail := c.GetString("userEmail")
 
 			// Get question id
-			questionID := c.Param("id")
+			questionID := c.Query("question_id")
 
 			// Get user's documents from database
 			answers, err := GetAnswers(userEmail, questionID)
@@ -185,7 +185,7 @@ func SetupRouter() *gin.Engine {
 			// Return
 			c.JSON(201, id)
 		})
-		authorized.POST("/questions/:id/answers", func(c *gin.Context) {
+		authorized.POST("/answers", func(c *gin.Context) {
 			// Get user
 			userEmail := c.GetString("userEmail")
 
@@ -197,7 +197,7 @@ func SetupRouter() *gin.Engine {
 			visibility := visibilityToInt[c.DefaultQuery("visibility", "shareable")]
 
 			// Get question
-			questionID := c.Param("id")
+			questionID := c.Query("question_id")
 
 			// Generate uuid
 			id := uuid.New().String()
