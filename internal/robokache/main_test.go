@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -14,16 +13,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/NCATS-Gamma/robokache/internal/robokache"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/stretchr/testify/assert"
 )
-
-func fatal(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
-}
 
 type MockClient struct{}
 
@@ -57,9 +49,9 @@ func performRequest(r http.Handler, method, path string, jwt string, body *strin
 	return w
 }
 
-const (
-	privKeyPath = "certs/test.key"
-	pubKeyPath  = "certs/test.cert"
+var (
+	privKeyPath = "../../test/certs/test.key"
+	pubKeyPath  = "../../test/certs/test.cert"
 )
 
 var (
@@ -76,7 +68,7 @@ var (
 // }
 
 func init() {
-	robokache.Client = &MockClient{}
+	Client = &MockClient{}
 
 	signBytes, err := ioutil.ReadFile(privKeyPath)
 	fatal(err)
@@ -88,7 +80,7 @@ func init() {
 	fatal(err)
 
 	// Grab our router
-	router = robokache.SetupRouter()
+	router = SetupRouter()
 
 	type MyCustomClaims struct {
 		Email string `json:"email,omitempty"`
@@ -108,17 +100,17 @@ func init() {
 	token.Header["kid"] = "default"
 	signedString, _ = token.SignedString(signKey)
 
-	robokache.SetupDB()
-	question := robokache.Question{"0", "me@robokache.com", 1, "{\n    \"hello\": \"world\"\n}"}
-	robokache.PostQuestion("me@robokache.com", question)
-	question = robokache.Question{"1", "you@robokache.com", 3, ""}
-	robokache.PostQuestion("you@robokache.com", question)
-	question = robokache.Question{"2", "you@robokache.com", 1, ""}
-	robokache.PostQuestion("you@robokache.com", question)
-	answer := robokache.Answer{"0a", "0", 1, "42"}
-	robokache.PostAnswer("me@robokache.com", answer)
-	answer = robokache.Answer{"1a", "1", 1, ""}
-	robokache.PostAnswer("you@robokache.com", answer)
+	SetupDB()
+	question := Question{"0", "me@robokache.com", 1, "{\n    \"hello\": \"world\"\n}"}
+	PostQuestion("me@robokache.com", question)
+	question = Question{"1", "you@robokache.com", 3, ""}
+	PostQuestion("you@robokache.com", question)
+	question = Question{"2", "you@robokache.com", 1, ""}
+	PostQuestion("you@robokache.com", question)
+	answer := Answer{"0a", "0", 1, "42"}
+	PostAnswer("me@robokache.com", answer)
+	answer = Answer{"1a", "1", 1, ""}
+	PostAnswer("you@robokache.com", answer)
 }
 
 func TestGetQuestions(t *testing.T) {
