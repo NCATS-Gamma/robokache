@@ -9,28 +9,36 @@ Workflow:
 
 ## Getting started
 
-### Install
+### Run via Docker
+
+Build the image:
 
 ```bash
->> go get -t ./...
+>> docker build -t robokache .
 ```
 
-### Run
+Run the image: 
 
 ```bash
->> go run ./cmd
+>> docker run -it -p 8080:8080 robokache
 ```
 
 * Got to <http://lvh.me:8080/>
 * Copy ID token from developer tools into authentication field
 * Have fun
 
-### Test
+### Test via Docker
 
+Set up testing certificate:
 ```bash
 >> openssl req -new -newkey rsa:1024 -days 365 -nodes -x509 -keyout test/certs/test.key -out test/certs/test.cert
->> go test ./internal/robokache -coverprofile=cover.out
->> go tool cover -func=cover.out
+```
+
+Make sure to re-build the image to include your certificates.
+
+Run tests and print coverage:
+```bash
+>> docker run robokache sh -c "go test ./internal/robokache -coverprofile=cover.out; go tool cover -func=cover.out"
 ```
 
 ## How it works
