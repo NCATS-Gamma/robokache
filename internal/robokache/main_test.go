@@ -118,7 +118,7 @@ func TestGetQuestions(t *testing.T) {
 	if !assert.Equal(t, http.StatusOK, w.Code) {
 		return
 	}
-	var response []map[string]string
+	var response []map[string]interface{}
 	err2 := json.Unmarshal([]byte(w.Body.String()), &response)
 	assert.Nil(t, err2)
 }
@@ -128,7 +128,7 @@ func TestGetQuestion(t *testing.T) {
 	if !assert.Equal(t, http.StatusOK, w.Code) {
 		return
 	}
-	var response map[string]string
+	var response map[string]interface{}
 	err2 := json.Unmarshal([]byte(w.Body.String()), &response)
 	assert.Nil(t, err2)
 }

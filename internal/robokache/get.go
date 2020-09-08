@@ -43,7 +43,7 @@ func GetQuestions(userEmail string) ([]map[string]interface{}, error) {
 		// Compile map of questions
 		docs = append(docs, map[string]interface{}{
 			"id":         id,
-			"owner":      owner,
+			"owned":      owner == userEmail,
 			"visibility": intToVisibility[visibility],
 		})
 	}
@@ -89,7 +89,7 @@ func GetQuestion(userEmail string, id string) (map[string]interface{}, error) {
 		// Return question
 		question := map[string]interface{}{
 			"id":         id,
-			"owner":      owner,
+			"owned":      owner == userEmail,
 			"visibility": intToVisibility[visibility],
 			"data":       string(data),
 		}

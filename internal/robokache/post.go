@@ -47,7 +47,7 @@ func PostAnswer(userEmail string, answer Answer) error {
 	if err != nil {
 		return err
 	}
-	if question["owner"] != userEmail {
+	if !(question["owned"].(bool)) {
 		return errors.New("Unauthorized: You do not own this question and may not add answers")
 	}
 
