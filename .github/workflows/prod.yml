@@ -1,0 +1,26 @@
+name: 'Push to Github Packages'
+description: 'Build Docker image and push to the Github Container Registry.'
+
+on:
+    pull_request:
+        types: closed
+        branches:
+            - master
+
+jobs:
+    push_to_registry:
+        name: Push Docker image to GitHub Packages
+        runs-on: ubuntu-latest
+        steps:
+            - name: Check out the repo
+              uses: actions/checkout@v2
+            - name: Push to GitHub Packages
+              uses: docker/build-push-action@v1
+              with:
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+                  registry: docker.pkg.github.com
+                  # Uppercase letters are not supported so this is all lowercase
+                  repository: ncats-gamma/robokache/build
+                  tags: latest
+                  tag_with_sha: true
