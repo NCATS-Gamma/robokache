@@ -1,5 +1,4 @@
 name: 'Push to Github Packages'
-description: 'Build Docker image and push to the Github Container Registry.'
 
 on:
     pull_request:

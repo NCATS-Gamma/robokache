@@ -1,5 +1,4 @@
 name: 'Build and Test'
-description: 'Run tests on each commit within Docker.'
 
 on: push
 
