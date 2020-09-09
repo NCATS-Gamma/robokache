@@ -36,7 +36,6 @@ Set up testing certificate (to emulate Google Auth):
 Run tests and print coverage:
 
 ```bash
->> openssl req -new -newkey rsa:1024 -days 365 -nodes -x509 -keyout test/certs/test.key -out test/certs/test.cert
 >> go test ./internal/robokache -coverprofile=cover.out
 >> go tool cover -func=cover.out
 ```
