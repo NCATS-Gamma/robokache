@@ -219,3 +219,23 @@ func TestNoSuchQuestion(t *testing.T) {
 	w := performRequest(router, "POST", "/api/answers?id=404", signedString, &requestBody)
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
+
+func TestDeleteAnswer(t *testing.T) {
+	w := performRequest(
+		router, "DELETE", "/api/answers/0a?question_id=0", signedString, nil)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Get question and check that it doesn't exist
+	w = performRequest(router, "GET", "/api/answers/0", signedString, nil)
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestDeleteQuestion(t *testing.T) {
+	w := performRequest(
+		router, "DELETE", "/api/questions/0", signedString, nil)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Get question and check that it doesn't exist
+	w = performRequest(router, "GET", "/api/questions/0", signedString, nil)
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}

@@ -260,6 +260,45 @@ func SetupRouter() *gin.Engine {
 			// Return
 			c.JSON(200, answer)
 		})
+		authorized.DELETE("/questions/:id", func(c *gin.Context) {
+			// Get user
+			userEmail := c.GetString("userEmail")
+
+			// Get question id
+			id := c.Param("id")
+
+			// Delete the question
+			question := Question{ID: id, Owner: userEmail}
+			err := DeleteQuestion(question)
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Return
+			c.JSON(200, "Question Deleted")
+		})
+		authorized.DELETE("/answers/:id", func(c *gin.Context) {
+			// Get user
+			userEmail := c.GetString("userEmail")
+
+			// Get answer id
+			id := c.Param("id")
+
+			// Get question
+			questionID := c.Query("question_id")
+
+			// Get user's documents from database
+			answer := Answer{ID: id, Question: questionID}
+			err := DeleteAnswer(userEmail, answer)
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Return
+			c.JSON(200, "Answer Deleted")
+		})
 	}
 	return r
 }
