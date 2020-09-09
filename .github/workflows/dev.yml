@@ -17,7 +17,7 @@ jobs:
               run: docker build -t robokache .
 
             - name: Test & Get Coverage
-              run: docker run --name robokache_runner robokache sh -c "go test ./internal/robokache -coverprofile=cover.out; go tool cover -func=cover.out"
+              run: docker run --name robokache_runner robokache sh -c "go test ./internal/robokache -coverprofile=cover.out"
 
             - name: Copy coverage report from container
               run: docker cp robokache_runner:/app/cover.out cover.out
