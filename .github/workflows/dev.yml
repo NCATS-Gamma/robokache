@@ -1,0 +1,35 @@
+name: 'Build and Test'
+
+on: pull_request
+
+jobs:
+    build_and_test:
+        name: Build and Test
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout the repository
+              uses: actions/checkout@v2
+
+            - name: Generate an SSL certificate for testing (silently)
+              run: openssl req -new -newkey rsa:1024 -days 365 -nodes -x509 -subj "/C=US/ST=NC" -keyout test/certs/test.key -out test/certs/test.cert
+
+            - name: Build
+              run: docker build -t robokache .
+
+            - name: Test & Get Coverage
+              run: docker run --name robokache_runner robokache sh -c "go test ./internal/robokache -coverprofile=cover.out"
+
+            - name: Copy coverage report from container
+              run: docker cp robokache_runner:/app/cover.out cover.out
+
+            - name: Convert coverage to lcov
+              uses: jandelgado/gcov2lcov-action@v1.0.0
+              with:
+                  infile: cover.out
+                  outfile: cover.lcov
+
+            - name: Report coverage as comment in pull request
+              uses: romeovs/lcov-reporter-action@v0.2.16
+              with:
+                  github-token: ${{ secrets.GITHUB_TOKEN }}
+                  lcov-file: ./cover.lcov
