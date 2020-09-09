@@ -1,8 +1,8 @@
 name: 'Release a new version to Github Packages'
 
 on:
-  release:
-    types: [published]
+    release:
+        types: [published]
 
 jobs:
     push_to_registry:
