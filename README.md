@@ -9,13 +9,30 @@ Workflow:
 
 ## Getting started
 
-### Install
+### Docker
+
+Build the image:
+
+```bash
+>> docker build -t robokache .
+```
+
+Run the image: 
+
+
+```bash
+>> docker run -it -p 8080:8080 robokache
+```
+
+### Native
+
+Install:
 
 ```bash
 >> go get -t ./...
 ```
 
-### Run
+Run:
 
 ```bash
 >> go run ./cmd
@@ -25,7 +42,7 @@ Workflow:
 * Copy ID token from developer tools into authentication field
 * Have fun
 
-### Test
+## Testing
 
 Set up testing certificate (to emulate Google Auth):
 
