@@ -144,6 +144,40 @@ func TestPostQuestion(t *testing.T) {
 	assert.Nil(t, err2)
 }
 
+func TestPutQuestion(t *testing.T) {
+	requestBody := "updated question"
+	w := performRequest(
+		router, "PUT", "/api/questions/0", signedString, &requestBody)
+	if !assert.Equal(t, http.StatusOK, w.Code) {
+		return
+	}
+
+	// Get question and check that data was updated
+	w = performRequest(router, "GET", "/api/questions/0", signedString, nil)
+	var response map[string]interface{}
+	err := json.Unmarshal([]byte(w.Body.String()), &response)
+	assert.Nil(t, err)
+
+	assert.Equal(t, requestBody, response["data"])
+}
+
+func TestPutAnswer(t *testing.T) {
+	requestBody := "updated answer"
+	w := performRequest(
+		router, "PUT", "/api/answers/0a?question_id=0", signedString, &requestBody)
+	if !assert.Equal(t, http.StatusOK, w.Code) {
+		return
+	}
+
+	// Get question and check that data was updated
+	w = performRequest(router, "GET", "/api/answers/0a?question_id=0", signedString, nil)
+	var response map[string]interface{}
+	err := json.Unmarshal([]byte(w.Body.String()), &response)
+	assert.Nil(t, err)
+
+	assert.Equal(t, requestBody, response["data"])
+}
+
 func TestGetAnswers(t *testing.T) {
 	w := performRequest(router, "GET", "/api/answers?question_id=0", signedString, nil)
 	if !assert.Equal(t, http.StatusOK, w.Code) {

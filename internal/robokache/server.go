@@ -213,6 +213,53 @@ func SetupRouter() *gin.Engine {
 			// Return
 			c.JSON(201, id)
 		})
+		authorized.PUT("/questions/:id", func(c *gin.Context) {
+			// Get user
+			userEmail := c.GetString("userEmail")
+
+			// Get question id
+			id := c.Param("id")
+
+			// Get request body
+			data, err := c.GetRawData()
+			fatal(err)
+
+			// Update the question
+			question := Question{ID: id, Owner: userEmail, Data: string(data)}
+			err = PutQuestion(question)
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Return 
+			c.JSON(200, "Question Updated")
+		})
+		authorized.PUT("/answers/:id", func(c *gin.Context) {
+			// Get user
+			userEmail := c.GetString("userEmail")
+
+			// Get answer id
+			id := c.Param("id")
+
+			// Get request body
+			data, err := c.GetRawData()
+			fatal(err)
+
+			// Get question
+			questionID := c.Query("question_id")
+
+			// Get user's documents from database
+			answer := Answer{ID: id, Data: string(data), Question: questionID}
+			err = PutAnswer(userEmail, answer)
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Return
+			c.JSON(200, answer)
+		})
 	}
 	return r
 }
