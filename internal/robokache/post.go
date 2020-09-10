@@ -1,5 +1,6 @@
 package robokache
 
+/*
 import (
 	"database/sql"
 	"errors"
@@ -73,3 +74,4 @@ func PostAnswer(userEmail string, answer Answer) error {
 	err = ioutil.WriteFile(dataDir+"/"+answer.ID+".json", []byte(answer.Data), 0644)
 	return err
 }
+*/

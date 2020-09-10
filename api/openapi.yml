@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Robokache
   description: Large object document store for ROBOKOP
-  version: 2.0.0
+  version: 3.0.0
   contact:
     email: patrick@covar.com
   license:
@@ -11,7 +11,7 @@ info:
 security:
   - google: []
 paths:
-  /api/documents:
+  /api/document:
     get:
       summary: Get documents
       description: Get a list of documents that are either public or associated with the current user
@@ -22,7 +22,7 @@ paths:
             application/json:
               schema:
                 type: array
-                # Include ID along with the document object
+                # Include ID along with the document
                 items:
                   allOf:
                    - $ref: '#/components/schemas/Document'
@@ -43,7 +43,7 @@ paths:
           $ref: '#/components/responses/IdOfCreated'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
-  /api/documents/{id}:
+  /api/document/{id}:
     get:
       summary: Get document by ID
       parameters:
@@ -93,7 +93,7 @@ paths:
         - $ref: '#/components/parameters/PathId'
       responses:
         '200':
-          description: List of document objects
+          description: List of documents
           content:
             application/json:
               schema:
@@ -107,8 +107,8 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
     post:
-      summary: Create a new child object and set data field
-      description: Shorthand to create a child object and set the data field using only one route. This creates the document with default values for fields.
+      summary: Create a new child document and set data field
+      description: Shorthand to create a child document and set the data field using only one route. This creates the document with default values for fields.
       parameters:
         - $ref: '#/components/parameters/PathId'
       requestBody:
@@ -120,7 +120,7 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/IdOfCreated'
-  /api/documents/{id}/data:
+  /api/document/{id}/data:
     get:
       summary: Get the data associated with this document
       parameters:
