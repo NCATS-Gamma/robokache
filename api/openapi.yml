@@ -12,22 +12,6 @@ security:
   - google: []
 paths:
   /api/questions:
-    post:
-      summary: Create a question
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: string
-      responses:
-        '201':
-          description: Question created
-          content:
-            application/json:
-              schema:
-                type: string
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
     get:
       summary: Get questions
       responses:
@@ -36,90 +20,211 @@ paths:
           content:
             application/json:
               schema:
-                type: string
+                type: array
+                # Include ID along with the question object
+                items:
+                  allOf:
+                   - $ref: '#/components/schemas/Question'
+                   - properties:
+                       id:
+                         type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+    post:
+      summary: Create a question
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Question'
+      responses:
+        '201':
+          $ref: '#/components/responses/IdOfCreated'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
   /api/questions/{id}:
     get:
       summary: Get question by ID
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/PathId'
       responses:
         '200':
           description: Question
           content:
             application/json:
               schema:
-                type: string
+                $ref: '#/components/schemas/Question'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '404':
           $ref: '#/components/responses/NoSuchDocument'
+    put:
+      summary: Update fields of question object
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Question'
+      responses:
+        '200':
+          description: Successfully updated
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NoSuchDocument'
+    delete:
+      summary: Delete question by ID
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: Deleted successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NoSuchDocument'
+  /api/questions/{id}/answers:
+    get:
+      summary: Get answers by question ID
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: List of answer object IDs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+    post:
+      summary: Create a new answer associated with this question
+      description: This creates an answer object with default values for fields.
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        description: Data object
+        content:
+          application/json:
+            schema:
+              type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/IdOfCreated'
+  /api/questions/{id}/data:
+    get:
+      summary: Get the data associated with this question
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: Data object
+          content:
+            application/json:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+    put:
+      summary: Set the data associated with this question
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        description: Data object
+        content:
+          application/json:
+            schema:
+              type: string
+      responses:
+        '200':
+          description: Successfully Updated
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
   /api/answers/{id}:
     get:
       summary: Get answer by ID
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/PathId'
       responses:
         '200':
           description: Answer
           content:
             application/json:
               schema:
-                type: string
+                $ref: '#/components/schemas/Answer'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '404':
           $ref: '#/components/responses/NoSuchDocument'
-  /api/answers:
-    post:
-      summary: Create an answer
+    delete:
+      summary: Delete answer by ID
       parameters:
-        - name: question_id
-          in: query
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: Deleted successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NoSuchDocument'
+  /api/answers/{id}/data:
+    get:
+      summary: Get the data associated with this answer
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: Data object
+          content:
+            application/json:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+    put:
+      summary: Set the data associated with this answer
+      parameters:
+        - $ref: '#/components/parameters/PathId'
       requestBody:
+        description: Data object
         content:
           application/json:
             schema:
               type: string
       responses:
-        '201':
-          description: Answer created
-          content:
-            application/json:
-              schema:
-                type: string
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-    get:
-      summary: Get answers by question ID
-      parameters:
-        - name: question_id
-          in: query
-          required: true
-          schema:
-            type: string
-      responses:
         '200':
-          description: Answers
-          content:
-            application/json:
-              schema:
-                type: string
+          description: Successfully Updated
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+  /api/answers:
+    post:
+      summary: Create an answer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Answer'
+      responses:
+        '201':
+          $ref: '#/components/responses/IdOfCreated'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+
 components:
+  schemas:
+    Question:
+      properties:
+        visibility:
+          type: integer
+    Answer:
+      properties:
+        question:
+          type: integer
   securitySchemes:
     google:
       type: http
@@ -130,3 +235,15 @@ components:
       description: Access token is missing or invalid
     NoSuchDocument:
       description: Document ID not found
+    IdOfCreated:
+      description: ID of created document
+      content:
+        application/text:
+          example: 1234
+  parameters:
+    PathId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
