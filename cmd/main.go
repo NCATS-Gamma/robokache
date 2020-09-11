@@ -3,8 +3,6 @@ package main
 import "github.com/NCATS-Gamma/robokache/internal/robokache"
 
 func main() {
-	robokache.SetupHashids()
-	robokache.SetupDB()
 
 	r := robokache.SetupRouter()
 	robokache.AddGUI(r)

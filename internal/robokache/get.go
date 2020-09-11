@@ -1,6 +1,7 @@
 package robokache
 
 import (
+	"os"
 	"database/sql"
 	"fmt"
 	"io/ioutil"
@@ -47,6 +48,7 @@ func GetDocument(userEmail string, id int) (Document, error) {
 	return doc, nil
 }
 
+// Get all the documents with given id is the parent
 func GetDocumentChildren(userEmail string, id int) ([]Document, error) {
 	var docs []Document
 
@@ -63,8 +65,17 @@ func GetDocumentChildren(userEmail string, id int) ([]Document, error) {
 }
 
 func GetData(id int) ([]byte, error) {
+	filename := dataDir + "/" + strconv.Itoa(id)
+
+	// If the file does not exist, return empty data
+	_, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+	    return []byte{}, nil
+	} else if err != nil {
+		return nil, err
+	}
 	// Read associated JSON file
-	data, err := ioutil.ReadFile(dataDir + "/" + strconv.Itoa(id) + ".json")
+	data, err := ioutil.ReadFile(filename)
 
 	if err != nil {
 		return nil, err

@@ -1,64 +1,11 @@
 package robokache
 
 import (
-	"log"
 	"net/http"
-	"os"
 	"strings"
-	"fmt"
 
 	"github.com/gin-gonic/gin"
-	_ "github.com/mattn/go-sqlite3" // makes database/sql point to SQLite
-	"github.com/jmoiron/sqlx"
-	"github.com/speps/go-hashids"
 )
-
-var db *sqlx.DB
-var hid *hashids.HashID
-
-func check(e error) {
-	if e != nil {
-		panic(e)
-	}
-}
-
-func fatal(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
-// Question represents a user's question
-type Document struct {
-    // Omit in JSON to prevent exposing primary key
-	ID         int            `db:"id"     json:"-"`
-	// Replaces ID in JSON, not stored in db
-	Hash       string         `db:"-"      json:"id"`
-	// Allow parent to be null using a pointer
-	Parent     *int           `db:"parent" json:"-"`
-	// Replaces parent field in JSON, not stored in db
-	ParentHash string         `db:"-"      json:"parent"`
-
-	Owner      string         `db:"owner"`
-	Visibility visibility     `db:"visibility"`
-}
-
-func addHash(doc *Document) error {
-	// Change document ID to hash
-	var err error
-	doc.Hash, err = idToHash(doc.ID)
-	if err != nil {
-		return err
-	}
-	// Change parent ID to hash
-	if doc.Parent != nil {
-		doc.ParentHash, err = idToHash(*doc.Parent)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
 
 type visibility int
 
@@ -68,19 +15,6 @@ const (
 	shareable visibility = 2
 	public    visibility = 3
 )
-
-var visibilityToInt = map[string]visibility{
-	"invisible": invisible,
-	"private":   private,
-	"shareable": shareable,
-	"public":    public,
-}
-var intToVisibility = []string{
-	"invisible",
-	"private",
-	"shareable",
-	"public",
-}
 
 func handleErr(c *gin.Context, err error) {
 	errorMsg := err.Error()
@@ -126,8 +60,9 @@ func SetupRouter() *gin.Engine {
 				return
 			}
 
+			// Relace the ID with a hashed ID for each document
 			for i := range documents {
-				addHash(&documents[i])
+				documents[i].addHash()
 			}
 
 			// Return
@@ -151,7 +86,7 @@ func SetupRouter() *gin.Engine {
 				return
 			}
 
-			addHash(&document)
+			document.addHash()
 
 			// Return
 			c.JSON(200, document)
@@ -182,8 +117,13 @@ func SetupRouter() *gin.Engine {
 				return
 			}
 
-			// Return
-			c.JSON(200, data)
+			// Return as binary data
+			c.Header("Content-Type", "application/octet-stream")
+			_, err = c.Writer.Write(data)
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
 		})
 		authorized.GET("/document/:id/children", func(c *gin.Context) {
 			// Get user
@@ -205,143 +145,150 @@ func SetupRouter() *gin.Engine {
 
 			// Convert IDs to hashes
 			for i := range documents {
-				addHash(&documents[i])
+				documents[i].addHash()
 			}
 
 			// Return
 			c.JSON(200, documents)
 		})
-		/*
-		authorized.POST("/questions", func(c *gin.Context) {
+		authorized.POST("/document", func(c *gin.Context) {
 			// Get user
 			userEmail := c.GetString("userEmail")
 
-			var doc Question
+			// Parse the document from JSON
+			var doc Document
 			err := c.ShouldBindJSON(&doc)
 			if err != nil {
 				handleErr(c, err)
 				return
 			}
-
+			// Set the document owner from the user's Google Auth
 			doc.Owner = userEmail
 
-			// Add question to DB
-			err = PostQuestion(userEmail, doc)
+			// Convert user given hashes to IDs
+			err = doc.addID()
 			if err != nil {
 				handleErr(c, err)
 				return
 			}
 
-			// Return
-			c.JSON(201, id)
+			// Add document to DB
+			newID, err := PostDocument(doc)
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Convert new ID to hash
+			hashedID, err := idToHash(newID)
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Return hashed ID as application/text
+			c.String(201, hashedID)
 		})
-		authorized.POST("/answers", func(c *gin.Context) {
+		authorized.PUT("/document/:id", func(c *gin.Context) {
 			// Get user
 			userEmail := c.GetString("userEmail")
 
-			// Get request body
+			// Get document id
+			id, err := hashToID(c.Param("id"))
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Parse the document from JSON
+			var doc Document
+			err = c.ShouldBindJSON(&doc)
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+			// Convert user given hashes to IDs
+			err = doc.addID()
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Set the document owner from the user's Google Auth
+			doc.Owner = userEmail
+			// Set the document based on the URL param
+			doc.ID = id
+
+			// Add document to DB
+			err = EditDocument(doc)
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Return hashed ID as application/text
+			c.String(201, "ok")
+		})
+		authorized.PUT("/document/:id/data", func(c *gin.Context) {
+			// Get user
+			userEmail := c.GetString("userEmail")
+
+			// Get document id
+			id, err := hashToID(c.Param("id"))
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Get document from database to ensure we have permission
+			// to access this endpoint
+			_, err = GetDocument(userEmail, id)
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Get raw data from HTTP request body
 			data, err := c.GetRawData()
-			fatal(err)
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
 
-			// Get visibility query parameter
-			visibility := visibilityToInt[c.DefaultQuery("visibility", "shareable")]
-
-			// Get question
-			questionID := c.Query("question_id")
-
-			// Generate uuid
-			id := uuid.New().String()
-
-			// Add answer to database
-			doc := Answer{id, questionID, visibility, string(data)}
-			err = PostAnswer(userEmail, doc)
+			// Write data to disk
+			err = SetData(id, data)
 			if err != nil {
 				handleErr(c, err)
 				return
 			}
 
 			// Return
-			c.JSON(201, id)
+			c.String(201, "ok")
 		})
-		*/
-	}
+		authorized.DELETE("/document/:id", func(c *gin.Context) {
+			// Get user
+			userEmail := c.GetString("userEmail")
 
-	// The rest of these routes are only added if we have a
-	// testing variable (these allow for easy db modification
-	_, testingEnv := os.LookupEnv("TESTING")
-	if testingEnv {
-		r.GET("/db/clear", func(c *gin.Context) {
-			_, err := db.Exec(`DROP table document`)
+			// Get document id
+			id, err := hashToID(c.Param("id"))
 			if err != nil {
 				handleErr(c, err)
 				return
 			}
-			SetupDB()
-			c.JSON(200, nil)
-		})
 
-		r.GET("/db/loadSample", func(c *gin.Context) {
-			// Load sample data
-			_, err := db.Exec(
-				`INSERT INTO document(id, parent, owner, visibility) VALUES
-					(0, NULL, 'user1@robokache.com', 3)`)
+			// Build a document object that is used to query the database for
+			// the delete request
+			doc := Document{ID: id, Owner: userEmail}
+
+			err = DeleteDocument(doc)
 			if err != nil {
 				handleErr(c, err)
 				return
 			}
-			_, err = db.Exec(
-				`INSERT INTO document(id, parent, owner, visibility) VALUES
-					(1, 0, 'user1@robokache.com', 3)`)
-			if err != nil {
-				handleErr(c, err)
-				return
-			}
-			c.JSON(200, nil)
+
+			c.String(200, "ok")
 		})
 	}
 	return r
-}
 
-func SetupHashids() {
-	hd := hashids.NewData()
-	hd.Salt = "This salt is unguessable. Don't even try"
-	hd.MinLength = 8
-
-	var err error
-	hid, err = hashids.NewWithData(hd)
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
-// Convert an API hash to an integer ID (database primary key)
-func hashToID(hash string) (int, error) {
-	ids, err := hid.DecodeWithError(hash)
-	if err != nil || len(ids) != 1 {
-		return -1, fmt.Errorf("Bad Request: Invalid document ID")
-	}
-	return ids[0], nil
-}
-// Convert an API hash to an integer ID (database primary key)
-func idToHash(id int) (string, error) {
-	hash, err := hid.Encode([]int{id})
-	if err != nil {
-		return "", err
-	}
-	return hash, nil
-}
-
-// SetupDB sets up the SQLite database
-func SetupDB() {
-	db = sqlx.MustConnect("sqlite3", dbFile)
-
-	sqlStmt := `
-		CREATE TABLE IF NOT EXISTS document (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			parent INTEGER,
-			owner TEXT,
-			visibility INTEGER
-		);`
-
-	db.MustExec(sqlStmt)
 }
