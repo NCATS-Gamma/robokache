@@ -64,7 +64,7 @@ func EditDocument(doc Document) error {
 }
 
 func SetData(id int, data []byte) error {
-	filename := dataDir + "/" + strconv.Itoa(id)
+	filename := dataDir + "/files/" + strconv.Itoa(id)
 	err := ioutil.WriteFile(filename, data, 0644)
 	if err != nil {
 		return err

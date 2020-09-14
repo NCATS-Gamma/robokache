@@ -94,6 +94,9 @@ func (doc *Document) addOwned(owner string) {
 }
 
 func clearDB() error {
+	os.RemoveAll(dataDir + "/files")
+	os.MkdirAll( dataDir + "/files", 0755)
+
 	_, err := db.Exec(`DELETE FROM document`)
 	return err
 }
@@ -133,23 +136,28 @@ func loadSampleData() error {
 
 var db *sqlx.DB
 
-// SetupDB sets up the SQLite database if it does not exist
-func init() {
-	// Create data directory
-	info, err := os.Stat(dataDir)
+func mustExistDirectory(dir string) {
+	info, err := os.Stat(dir)
 	if os.IsNotExist(err) {
-		err := os.Mkdir(dataDir, 0755)
+		err := os.Mkdir(dir, 0755)
 		if err != nil {
-			panic(fmt.Errorf("Failed to create data directory: %v", err))
+			panic(fmt.Errorf("Failed to create directory %s: %v", dir, err))
 		}
-		info, _ = os.Stat(dataDir)
+		info, _ = os.Stat(dir)
 	} else if err != nil {
 		panic(err)
 	}
-	// If dataDir exists but is not a directory, panic
+	// If dir exists but is not a directory, panic
 	if !info.IsDir() {
-		panic(fmt.Errorf("\"data\" file exists and is not a directory"))
+		panic(fmt.Errorf("\"%s\" file exists and is not a directory", dir))
 	}
+}
+
+// SetupDB sets up the SQLite database if it does not exist
+func init() {
+	// Create data directory
+	mustExistDirectory(dataDir)
+	mustExistDirectory(dataDir + "/files")
 
 	db = sqlx.MustConnect("sqlite3", dbFile)
 

@@ -65,7 +65,7 @@ func GetDocumentChildren(userEmail string, id int) ([]Document, error) {
 }
 
 func GetData(id int) ([]byte, error) {
-	filename := dataDir + "/" + strconv.Itoa(id)
+	filename := dataDir + "/files/" + strconv.Itoa(id)
 
 	// If the file does not exist, return empty data
 	_, err := os.Stat(filename)
