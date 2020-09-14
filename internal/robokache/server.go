@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strings"
 	"github.com/gin-gonic/gin"
-	"io"
 )
 
 func handleErr(c *gin.Context, err error) {
@@ -103,19 +102,9 @@ func SetupRouter() *gin.Engine {
 				return
 			}
 
-			// Get data from disk
-			r, err := GetData(id)
-			if err != nil {
-				handleErr(c, err)
-				return
-			}
-
 			c.Header("Content-Type", "application/octet-stream")
-			// Use io.Copy to copy without a buffer
-			// Return as binary data
-			io.Copy(c.Writer, r)
-			r.Close()
-
+			// Get data from disk and write it to HTTP response
+			err = GetData(id, c.Writer)
 			if err != nil {
 				handleErr(c, err)
 				return
@@ -178,13 +167,11 @@ func SetupRouter() *gin.Engine {
 			}
 
 			// Write data to disk
-			w, err := SetData(newDocID)
+			err = SetData(newDocID, c.Request.Body)
 			if err != nil {
 				handleErr(c, err)
 				return
 			}
-			io.Copy(w, c.Request.Body)
-			w.Close()
 
 			// Convert ID to hash
 			newDocIDHash, err := idToHash(newDocID)
@@ -293,14 +280,11 @@ func SetupRouter() *gin.Engine {
 			}
 
 			// Write data to disk
-			w, err := SetData(id)
+			err = SetData(id, c.Request.Body)
 			if err != nil {
 				handleErr(c, err)
 				return
 			}
-
-			io.Copy(w, c.Request.Body)
-			w.Close()
 
 			// Return
 			c.String(http.StatusOK, "ok")

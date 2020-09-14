@@ -64,11 +64,20 @@ func EditDocument(doc Document) error {
 	return nil
 }
 
-func SetData(id int) (io.WriteCloser, error) {
+func SetData(id int, r io.Reader) error {
 	filename := dataDir + "/files/" + strconv.Itoa(id)
-	f, err := os.Create(filename)
+
+	// Open file for writing
+	file, err := os.Create(filename)
 	if err != nil {
-		return nil, err
+		return nil
 	}
-	return f, nil
+	defer file.Close()
+
+	// Use io.Copy to write without a buffer
+	_, err = io.Copy(file, r)
+	if err != nil {
+		return err
+	}
+	return nil
 }
