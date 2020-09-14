@@ -3,17 +3,7 @@ package robokache
 import (
 	"net/http"
 	"strings"
-
 	"github.com/gin-gonic/gin"
-)
-
-type visibility int
-
-const (
-	invisible visibility = 0
-	private   visibility = 1
-	shareable visibility = 2
-	public    visibility = 3
 )
 
 func handleErr(c *gin.Context, err error) {
@@ -63,10 +53,11 @@ func SetupRouter() *gin.Engine {
 			// Relace the ID with a hashed ID for each document
 			for i := range documents {
 				documents[i].addHash()
+				documents[i].addOwned(userEmail)
 			}
 
 			// Return
-			c.JSON(200, documents)
+			c.JSON(http.StatusOK, documents)
 		})
 		authorized.GET("/document/:id", func(c *gin.Context) {
 			// Get user
@@ -87,9 +78,10 @@ func SetupRouter() *gin.Engine {
 			}
 
 			document.addHash()
+			document.addOwned(userEmail)
 
 			// Return
-			c.JSON(200, document)
+			c.JSON(http.StatusOK, document)
 		})
 		authorized.GET("/document/:id/data", func(c *gin.Context) {
 			// Get user
@@ -119,7 +111,8 @@ func SetupRouter() *gin.Engine {
 
 			// Return as binary data
 			c.Header("Content-Type", "application/octet-stream")
-			_, err = c.Writer.Write(data)
+			c.Writer.Write(data)
+
 			if err != nil {
 				handleErr(c, err)
 				return
@@ -146,10 +139,63 @@ func SetupRouter() *gin.Engine {
 			// Convert IDs to hashes
 			for i := range documents {
 				documents[i].addHash()
+				documents[i].addOwned(userEmail)
 			}
 
 			// Return
-			c.JSON(200, documents)
+			c.JSON(http.StatusOK, documents)
+		})
+		authorized.POST("/document/:id/children", func(c *gin.Context) {
+			// Get user
+			userEmail := c.GetString("userEmail")
+
+			// Get document id
+			parentID, err := hashToID(c.Param("id"))
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Get the parent so we can set the default visibility
+			// to the visibility of the parent
+			parent, err := GetDocument(userEmail, parentID)
+			if err != nil {
+				handleErr(c, err)
+			}
+			newDoc := Document{
+				Parent: &parent.ID,
+				Visibility: parent.Visibility,
+				Owner: userEmail,
+			}
+
+			// Add the document to the database
+			newDocID, err := PostDocument(newDoc)
+			if err != nil {
+				handleErr(c, err)
+			}
+
+			// Get raw data from HTTP request body
+			data, err := c.GetRawData()
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Write data to disk
+			err = SetData(newDocID, data)
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Convert ID to hash
+			newDocIDHash, err := idToHash(newDocID)
+			if err != nil {
+				handleErr(c, err)
+			}
+
+			// Return
+			c.String(http.StatusOK, newDocIDHash)
 		})
 		authorized.POST("/document", func(c *gin.Context) {
 			// Get user
@@ -187,7 +233,7 @@ func SetupRouter() *gin.Engine {
 			}
 
 			// Return hashed ID as application/text
-			c.String(201, hashedID)
+			c.String(http.StatusCreated, hashedID)
 		})
 		authorized.PUT("/document/:id", func(c *gin.Context) {
 			// Get user
@@ -227,7 +273,7 @@ func SetupRouter() *gin.Engine {
 			}
 
 			// Return hashed ID as application/text
-			c.String(201, "ok")
+			c.String(http.StatusOK, "ok")
 		})
 		authorized.PUT("/document/:id/data", func(c *gin.Context) {
 			// Get user
@@ -263,7 +309,7 @@ func SetupRouter() *gin.Engine {
 			}
 
 			// Return
-			c.String(201, "ok")
+			c.String(http.StatusOK, "ok")
 		})
 		authorized.DELETE("/document/:id", func(c *gin.Context) {
 			// Get user
@@ -286,7 +332,7 @@ func SetupRouter() *gin.Engine {
 				return
 			}
 
-			c.String(200, "ok")
+			c.String(http.StatusOK, "ok")
 		})
 	}
 	return r

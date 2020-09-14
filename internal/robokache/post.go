@@ -7,7 +7,6 @@ import (
 
 // PostDocument stores a document in the DB. It fails if question.owner != user.
 func PostDocument(doc Document) (int, error) {
-	fmt.Printf("Document to add: %+v\n", doc)
 	if doc.Parent != nil {
 		// Check that the parent:
 		// 1. Exists
@@ -19,7 +18,6 @@ func PostDocument(doc Document) (int, error) {
 			 id=? AND owner=? AND visibility>=?
 			 `, doc.Parent, doc.Owner, doc.Visibility)
 		err := row.StructScan(&parent)
-		fmt.Printf("Parent: %+v\n", parent)
 		if err == sql.ErrNoRows {
 			return -1, fmt.Errorf("Bad Request: Check that the parent exists and does not have less visibility than the child you are trying to add.")
 		} else if err != nil {

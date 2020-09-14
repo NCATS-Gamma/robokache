@@ -2,9 +2,9 @@ package robokache
 
 import (
 	"os"
+	"io/ioutil"
 	"database/sql"
 	"fmt"
-	"io/ioutil"
 	"strconv"
 
 	_ "github.com/mattn/go-sqlite3" // makes database/sql point to SQLite
@@ -55,7 +55,7 @@ func GetDocumentChildren(userEmail string, id int) ([]Document, error) {
 	err := db.Select(&docs, `
 		SELECT * FROM document
 		WHERE parent=? AND (owner=? OR visibility>=?)`,
-	id, userEmail, shareable)
+	id, userEmail, public)
 
 	if err != nil {
 		return docs, err
