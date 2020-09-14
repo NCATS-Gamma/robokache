@@ -3,6 +3,8 @@ package robokache
 import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3" // makes database/sql point to SQLite
+	"os"
+	"fmt"
 )
 
 type Document struct {
@@ -133,6 +135,22 @@ var db *sqlx.DB
 
 // SetupDB sets up the SQLite database if it does not exist
 func init() {
+	// Create data directory
+	info, err := os.Stat(dataDir)
+	if os.IsNotExist(err) {
+		err := os.Mkdir(dataDir, 0755)
+		if err != nil {
+			panic(fmt.Errorf("Failed to create data directory: %v", err))
+		}
+		info, _ = os.Stat(dataDir)
+	} else if err != nil {
+		panic(err)
+	}
+	// If dataDir exists but is not a directory, panic
+	if !info.IsDir() {
+		panic(fmt.Errorf("\"data\" file exists and is not a directory"))
+	}
+
 	db = sqlx.MustConnect("sqlite3", dbFile)
 
 	sqlStmt := `
