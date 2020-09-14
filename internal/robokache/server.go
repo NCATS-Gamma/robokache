@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 	"github.com/gin-gonic/gin"
+	"io"
 )
 
 func handleErr(c *gin.Context, err error) {
@@ -103,15 +104,17 @@ func SetupRouter() *gin.Engine {
 			}
 
 			// Get data from disk
-			data, err := GetData(id)
+			r, err := GetData(id)
 			if err != nil {
 				handleErr(c, err)
 				return
 			}
 
-			// Return as binary data
 			c.Header("Content-Type", "application/octet-stream")
-			c.Writer.Write(data)
+			// Use io.Copy to copy without a buffer
+			// Return as binary data
+			io.Copy(c.Writer, r)
+			r.Close()
 
 			if err != nil {
 				handleErr(c, err)
@@ -174,19 +177,14 @@ func SetupRouter() *gin.Engine {
 				handleErr(c, err)
 			}
 
-			// Get raw data from HTTP request body
-			data, err := c.GetRawData()
-			if err != nil {
-				handleErr(c, err)
-				return
-			}
-
 			// Write data to disk
-			err = SetData(newDocID, data)
+			w, err := SetData(newDocID)
 			if err != nil {
 				handleErr(c, err)
 				return
 			}
+			io.Copy(w, c.Request.Body)
+			w.Close()
 
 			// Convert ID to hash
 			newDocIDHash, err := idToHash(newDocID)
@@ -294,19 +292,15 @@ func SetupRouter() *gin.Engine {
 				return
 			}
 
-			// Get raw data from HTTP request body
-			data, err := c.GetRawData()
+			// Write data to disk
+			w, err := SetData(id)
 			if err != nil {
 				handleErr(c, err)
 				return
 			}
 
-			// Write data to disk
-			err = SetData(id, data)
-			if err != nil {
-				handleErr(c, err)
-				return
-			}
+			io.Copy(w, c.Request.Body)
+			w.Close()
 
 			// Return
 			c.String(http.StatusOK, "ok")

@@ -197,6 +197,18 @@ func TestGetPutData(t *testing.T) {
 	assert.Equal(t, requestBody, w.Body.String())
 }
 
+func TestGetNoData(t *testing.T) {
+	clearDB(); loadSampleData()
+
+	id, _ := idToHash(1)
+	w := performRequest(router, "GET",
+			fmt.Sprintf(`/api/document/%s/data`, id),
+			signedString, nil)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "", w.Body.String())
+}
+
 // Test the shortcut route to add a child with data
 func TestPostChildWithData(t *testing.T) {
 	clearDB(); loadSampleData()

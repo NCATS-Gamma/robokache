@@ -2,10 +2,12 @@ package robokache
 
 import (
 	"os"
+	"io"
 	"io/ioutil"
 	"database/sql"
 	"fmt"
 	"strconv"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3" // makes database/sql point to SQLite
 )
@@ -64,19 +66,20 @@ func GetDocumentChildren(userEmail string, id int) ([]Document, error) {
 	return docs, nil
 }
 
-func GetData(id int) ([]byte, error) {
+func GetData(id int) (io.ReadCloser, error) {
 	filename := dataDir + "/files/" + strconv.Itoa(id)
 
-	// If the file does not exist, return empty data
 	_, err := os.Stat(filename)
 	if os.IsNotExist(err) {
-	    return []byte{}, nil
+		// If the file does not exist, return empty data
+		r := ioutil.NopCloser(strings.NewReader(""))
+	    return r, nil
 	} else if err != nil {
 		return nil, err
 	}
-	// Read associated JSON file
-	data, err := ioutil.ReadFile(filename)
 
+	// Read associated data file
+	data, err := os.Open(filename)
 	if err != nil {
 		return nil, err
 	}
