@@ -63,7 +63,7 @@ func (doc *Document) addHash() error {
 	return nil
 }
 
-// Change Hashes in document to IDs
+// Change Hashes (Parent and ID) in document to IDs
 func (doc *Document) addID() error {
 	if doc.Hash != "" {
 		newID, err := hashToID(doc.Hash)

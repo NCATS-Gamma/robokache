@@ -253,7 +253,7 @@ func SetupRouter() *gin.Engine {
 				handleErr(c, err)
 				return
 			}
-			// Convert user given hashes to IDs
+			// Convert user-given parent hash and ID hash to IDs
 			err = doc.addID()
 			if err != nil {
 				handleErr(c, err)

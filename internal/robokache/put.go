@@ -53,16 +53,12 @@ func EditDocument(doc Document) error {
 	result, err := db.Exec(`
 		UPDATE document SET
 		visibility=?, parent=?
-		WHERE
-		id=? AND owner=?;
-	`, doc.Visibility, doc.Parent, doc.ID, doc.Owner)
+		WHERE id=?;
+	`, doc.Visibility, doc.Parent, doc.ID)
 
-	rowsUpdated, err := result.RowsAffected()
+	_, err = result.RowsAffected()
 	if err != nil {
 		return err
-	}
-	if rowsUpdated == 0 {
-		return fmt.Errorf("Bad Request: Check that the document exists and belongs to you")
 	}
 	return nil
 }

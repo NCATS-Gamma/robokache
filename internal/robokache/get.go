@@ -48,7 +48,7 @@ func GetDocument(userEmail string, id int) (Document, error) {
 	return doc, nil
 }
 
-// Get all the documents with given id is the parent
+// Get all the documents with given id as the parent
 func GetDocumentChildren(userEmail string, id int) ([]Document, error) {
 	var docs []Document
 
