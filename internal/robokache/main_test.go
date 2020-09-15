@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"log"
 
 	"github.com/gin-gonic/gin"
 
@@ -18,6 +19,12 @@ import (
 )
 
 type MockClient struct{}
+
+func fatal(err error) {
+	if err != nil {
+		log.Fatal(err)
+	}
+}
 
 func (m *MockClient) Get(url string) (*http.Response, error) {
 	if url != "https://www.googleapis.com/oauth2/v1/certs" {
@@ -61,12 +68,6 @@ var (
 	signedString string
 )
 
-// func fatal(err error) {
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-// }
-
 func init() {
 	Client = &MockClient{}
 
@@ -100,88 +101,279 @@ func init() {
 	token.Header["kid"] = "default"
 	signedString, _ = token.SignedString(signKey)
 
-	SetupDB()
-	question := Question{"0", "me@robokache.com", 1, "{\n    \"hello\": \"world\"\n}"}
-	PostQuestion("me@robokache.com", question)
-	question = Question{"1", "you@robokache.com", 3, ""}
-	PostQuestion("you@robokache.com", question)
-	question = Question{"2", "you@robokache.com", 1, ""}
-	PostQuestion("you@robokache.com", question)
-	answer := Answer{"0a", "0", 1, "42"}
-	PostAnswer("me@robokache.com", answer)
-	answer = Answer{"1a", "1", 1, ""}
-	PostAnswer("you@robokache.com", answer)
 }
 
-func TestGetQuestions(t *testing.T) {
-	w := performRequest(router, "GET", "/api/questions", signedString, nil)
-	if !assert.Equal(t, http.StatusOK, w.Code) {
-		return
-	}
+func TestGetDocuments(t *testing.T) {
+	clearDB(); loadSampleData()
+
+	w := performRequest(router, "GET", "/api/document", signedString, nil)
+	assert.Equal(t, http.StatusOK, w.Code)
+
 	var response []map[string]interface{}
-	err2 := json.Unmarshal([]byte(w.Body.String()), &response)
-	assert.Nil(t, err2)
+	err := json.Unmarshal([]byte(w.Body.String()), &response)
+	assert.Nil(t, err)
+
+	// Should be able to see my documents (4) + you public documents (2)
+	assert.Equal(t, 6, len(response))
 }
 
-func TestGetQuestion(t *testing.T) {
-	w := performRequest(router, "GET", "/api/questions/0", signedString, nil)
-	if !assert.Equal(t, http.StatusOK, w.Code) {
-		return
-	}
+func TestGetMePrivateDocument(t *testing.T) {
+	clearDB(); loadSampleData()
+
+	// Can get my own private document
+	hashedID, _ := idToHash(0)
+	w := performRequest(router, "GET", "/api/document/" + hashedID, signedString, nil)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Check that the response looks ok
 	var response map[string]interface{}
-	err2 := json.Unmarshal([]byte(w.Body.String()), &response)
-	assert.Nil(t, err2)
+	err := json.Unmarshal([]byte(w.Body.String()), &response)
+	assert.Nil(t, err)
+	assert.Equal(t, hashedID, response["id"])
+	assert.Equal(t, true, response["owned"])
 }
 
-func TestPostQuestion(t *testing.T) {
-	requestBody := "test question"
-	w := performRequest(router, "POST", "/api/questions", signedString, &requestBody)
-	if !assert.Equal(t, http.StatusCreated, w.Code) {
-		return
-	}
-	var response string
-	err2 := json.Unmarshal([]byte(w.Body.String()), &response)
-	assert.Nil(t, err2)
+func TestGetYouPrivateDocument(t *testing.T) {
+	clearDB(); loadSampleData()
+
+	hashedID, err := idToHash(6)
+	assert.Nil(t, err)
+	w := performRequest(router, "GET", "/api/document/" + hashedID, signedString, nil)
+	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
-func TestGetAnswers(t *testing.T) {
-	w := performRequest(router, "GET", "/api/answers?question_id=0", signedString, nil)
-	if !assert.Equal(t, http.StatusOK, w.Code) {
-		return
-	}
-	var response []map[string]string
-	err2 := json.Unmarshal([]byte(w.Body.String()), &response)
-	assert.Nil(t, err2)
+func TestGetYouShareableDocument(t *testing.T) {
+	clearDB(); loadSampleData()
+
+	// Can get other's shareable documents
+	hashedID, err := idToHash(5)
+	assert.Nil(t, err)
+	w := performRequest(router, "GET", "/api/document/" + hashedID, signedString, nil)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	err = json.Unmarshal([]byte(w.Body.String()), &response)
+	assert.Nil(t, err)
+	assert.Equal(t, hashedID, response["id"])
+	assert.Equal(t, false, response["owned"])
 }
 
-func TestGetAnswer(t *testing.T) {
-	w := performRequest(router, "GET", "/api/answers/0a", signedString, nil)
-	if !assert.Equal(t, http.StatusOK, w.Code) {
-		return
-	}
-	var response map[string]string
-	err2 := json.Unmarshal([]byte(w.Body.String()), &response)
-	assert.Nil(t, err2)
+func TestGetChildren(t *testing.T) {
+	clearDB(); loadSampleData()
+
+	// Can see all of my own child documents
+	hashedID, _ := idToHash(1)
+	w := performRequest(router, "GET", "/api/document/" + hashedID + "/children", signedString, nil)
+	assert.Equal(t, http.StatusOK, w.Code)
+	var response []map[string]interface{}
+	err := json.Unmarshal([]byte(w.Body.String()), &response)
+	assert.Nil(t, err)
+	assert.Equal(t, 2, len(response))
+
+	// Can see only public child documents if the document is not owned by me
+	hashedID, _ = idToHash(5)
+	assert.Nil(t, err)
+	w = performRequest(router, "GET", "/api/document/" + hashedID + "/children", signedString, nil)
+	assert.Equal(t, http.StatusOK, w.Code)
+	err = json.Unmarshal([]byte(w.Body.String()), &response)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(response))
 }
 
-func TestPostAnswer(t *testing.T) {
-	requestBody := "test answer"
-	w := performRequest(router, "POST", "/api/answers?question_id=0", signedString, &requestBody)
-	if !assert.Equal(t, http.StatusCreated, w.Code) {
-		return
-	}
-	var response string
-	err2 := json.Unmarshal([]byte(w.Body.String()), &response)
-	assert.Nil(t, err2)
+func TestGetPutData(t *testing.T) {
+	clearDB(); loadSampleData()
+
+	id, _ := idToHash(1)
+	requestBody := "This is a string to test the data saving functionality"
+	w := performRequest(router, "PUT",
+			fmt.Sprintf(`/api/document/%s/data`, id),
+			signedString, &requestBody)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	w = performRequest(router, "GET",
+			fmt.Sprintf(`/api/document/%s/data`, id),
+			signedString, &requestBody)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, requestBody, w.Body.String())
+}
+
+// Test the shortcut route to add a child with data
+func TestPostChildWithData(t *testing.T) {
+	clearDB(); loadSampleData()
+
+	id, _ := idToHash(1)
+	requestBody := "This is a string to test the data saving functionality"
+	w := performRequest(router, "POST",
+			fmt.Sprintf(`/api/document/%s/children`, id),
+			signedString, &requestBody)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	newDocumentIDHash := w.Body.String()
+	log.Println(newDocumentIDHash)
+
+	newDocumentID, err := hashToID(newDocumentIDHash)
+	assert.Nil(t, err)
+	assert.Greater(t, newDocumentID, 8)
+
+	// Check that the document was created with the same visibility as parent
+	w = performRequest(router, "GET",
+			fmt.Sprintf(`/api/document/%s`, newDocumentIDHash),
+			signedString, &requestBody)
+	var response map[string]interface{}
+	err = json.Unmarshal([]byte(w.Body.String()), &response)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Nil(t, err)
+	// JSON response numbers are parsed as floats
+	assert.Equal(t, float64(shareable), response["visibility"])
+
+	// Check that the document data was saved correctly
+	w = performRequest(router, "GET",
+			fmt.Sprintf(`/api/document/%s/data`, newDocumentIDHash),
+			signedString, &requestBody)
+	assert.Equal(t, requestBody, w.Body.String())
+}
+
+
+func TestPostDocument(t *testing.T) {
+	clearDB(); loadSampleData()
+	requestBody := `{ "visibility" : 4 }`
+	w := performRequest(router, "POST", "/api/document", signedString, &requestBody)
+	assert.Equal(t, http.StatusCreated, w.Code)
+
+	fmt.Println(w.Body.String())
+
+	// Check that the ID was returned
+	createdID, err := hashToID(w.Body.String())
+	assert.Nil(t, err)
+	assert.Greater(t, createdID, 8)
+}
+
+func TestPostDocumentWithParent(t *testing.T) {
+	clearDB(); loadSampleData()
+
+	parentID, _ := idToHash(1)
+	requestBody := fmt.Sprintf(
+			`{ "parent" : "%s", "visibility" : %d }`,
+		parentID, shareable)
+	w := performRequest(router, "POST", "/api/document", signedString, &requestBody)
+	assert.Equal(t, http.StatusCreated, w.Code)
+
+	// Check that the ID was returned
+	createdID, err := hashToID(w.Body.String())
+	assert.Nil(t, err)
+	assert.Greater(t, createdID, 8)
+}
+
+func TestPostDocumentInvalidParent(t *testing.T) {
+	clearDB(); loadSampleData()
+
+	// Parent document is not owned by me
+	parentID, _ := idToHash(4)
+	requestBody := fmt.Sprintf(
+			`{ "parent" : "%s", "visibility" : %d }`,
+		parentID, shareable)
+	w := performRequest(router, "POST", "/api/document", signedString, &requestBody)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	// Parent document has less visibility
+	parentID, _ = idToHash(0)
+	requestBody = fmt.Sprintf(
+			`{ "parent" : "%s", "visibility" : %d }`,
+		parentID, shareable)
+	w = performRequest(router, "POST", "/api/document", signedString, &requestBody)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestPutDocument(t *testing.T) {
+	clearDB(); loadSampleData()
+
+	requestBody := fmt.Sprintf(`{ "visibility" : %d }`, private)
+	idHash, _ := idToHash(1)
+	w := performRequest(router, "PUT",
+			fmt.Sprintf(`/api/document/%s`, idHash),
+			signedString, &requestBody)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestPutDocumentModifyParent(t *testing.T) {
+	clearDB(); loadSampleData()
+
+	newParentID, _ := idToHash(0)
+	requestBody := fmt.Sprintf(`{ "parent" : "%s", "visibility" : %d }`,
+							   newParentID, private)
+	id, _ := idToHash(1)
+	w := performRequest(router, "PUT",
+			fmt.Sprintf(`/api/document/%s`, id),
+			signedString, &requestBody)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestPutDocumentInvalidParent(t *testing.T) {
+	clearDB(); loadSampleData()
+
+	// Not enough visibility on parent
+	newParentID, _ := idToHash(0)
+	requestBody := fmt.Sprintf(`{ "parent" : "%s" }`, newParentID)
+	id, _ := idToHash(1)
+	w := performRequest(router, "PUT",
+			fmt.Sprintf(`/api/document/%s`, id),
+			signedString, &requestBody)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	// Not owned by current user
+	newParentID, _ = idToHash(5)
+	requestBody = fmt.Sprintf(`{ "parent" : "%s" }`, newParentID)
+	id, _ = idToHash(1)
+	w = performRequest(router, "PUT",
+			fmt.Sprintf(`/api/document/%s`, id),
+			signedString, &requestBody)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	// Doesn't exist
+	newParentID, _ = idToHash(45)
+	requestBody = fmt.Sprintf(`{ "parent" : "%s" }`, newParentID)
+	id, _ = idToHash(1)
+	w = performRequest(router, "PUT",
+			fmt.Sprintf(`/api/document/%s`, id),
+			signedString, &requestBody)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestDeleteDocument(t *testing.T) {
+	clearDB(); loadSampleData()
+
+	id, _ := idToHash(1)
+	w := performRequest(router, "DELETE",
+			fmt.Sprintf(`/api/document/%s`, id),
+			signedString, nil)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Can't delete other user's document
+	id, _ = idToHash(4)
+	w = performRequest(router, "DELETE",
+			fmt.Sprintf(`/api/document/%s`, id),
+			signedString, nil)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestBadToken(t *testing.T) {
-	w := performRequest(router, "POST", "/api/questions", "abc", nil)
+	w := performRequest(router, "POST", "/api/document", "abc", nil)
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
-func TestNoSuchQuestion(t *testing.T) {
-	requestBody := "test answer"
-	w := performRequest(router, "POST", "/api/answers?id=404", signedString, &requestBody)
-	assert.Equal(t, http.StatusNotFound, w.Code)
+func TestGetPutLargeData(t *testing.T) {
+	clearDB(); loadSampleData()
+
+	id, _ := idToHash(1)
+	requestBody := "This is a string to test the data saving functionality"
+	w := performRequest(router, "PUT",
+			fmt.Sprintf(`/api/document/%s/data`, id),
+			signedString, &requestBody)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	w = performRequest(router, "GET",
+			fmt.Sprintf(`/api/document/%s/data`, id),
+			signedString, &requestBody)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, requestBody, w.Body.String())
 }

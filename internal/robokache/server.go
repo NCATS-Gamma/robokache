@@ -1,66 +1,10 @@
 package robokache
 
 import (
-	"database/sql"
-	"log"
 	"net/http"
-	"os"
 	"strings"
-
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	_ "github.com/mattn/go-sqlite3" // makes database/sql point to SQLite
 )
-
-func check(e error) {
-	if e != nil {
-		panic(e)
-	}
-}
-
-func fatal(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
-// Question represents a user's question
-type Question struct {
-	ID         string
-	Owner      string
-	Visibility visibility
-	Data       string
-}
-
-// Answer represents the answer to a question
-type Answer struct {
-	ID         string
-	Question   string
-	Visibility visibility
-	Data       string
-}
-
-type visibility int
-
-const (
-	invisible visibility = 0
-	private   visibility = 1
-	shareable visibility = 2
-	public    visibility = 3
-)
-
-var visibilityToInt = map[string]visibility{
-	"invisible": invisible,
-	"private":   private,
-	"shareable": shareable,
-	"public":    public,
-}
-var intToVisibility = []string{
-	"invisible",
-	"private",
-	"shareable",
-	"public",
-}
 
 func handleErr(c *gin.Context, err error) {
 	errorMsg := err.Error()
@@ -95,148 +39,302 @@ func SetupRouter() *gin.Engine {
 	authorized := r.Group("/api")
 	authorized.Use(GetUser)
 	{
-		authorized.GET("/questions", func(c *gin.Context) {
+		authorized.GET("/document", func(c *gin.Context) {
 			// Get user
 			userEmail := c.GetString("userEmail")
 
 			// Get user's documents from database
-			questions, err := GetQuestions(userEmail)
+			documents, err := GetDocuments(userEmail)
 			if err != nil {
 				handleErr(c, err)
 				return
 			}
 
+			// Relace the ID with a hashed ID for each document
+			for i := range documents {
+				documents[i].addHash()
+				documents[i].addOwned(userEmail)
+			}
+
 			// Return
-			c.JSON(200, questions)
+			c.JSON(http.StatusOK, documents)
 		})
-		authorized.GET("/answers", func(c *gin.Context) {
+		authorized.GET("/document/:id", func(c *gin.Context) {
 			// Get user
 			userEmail := c.GetString("userEmail")
 
-			// Get question id
-			questionID := c.Query("question_id")
-
-			// Get user's documents from database
-			answers, err := GetAnswers(userEmail, questionID)
+			// Get document id
+			id, err := hashToID(c.Param("id"))
 			if err != nil {
 				handleErr(c, err)
 				return
 			}
 
-			// Return
-			c.JSON(200, answers)
-		})
-		authorized.GET("/questions/:id", func(c *gin.Context) {
-			// Get user
-			userEmail := c.GetString("userEmail")
-
-			// Get question id
-			id := c.Param("id")
-
-			// Get user's documents from database
-			question, err := GetQuestion(userEmail, id)
+			// Get document from database
+			document, err := GetDocument(userEmail, id)
 			if err != nil {
 				handleErr(c, err)
 				return
 			}
 
+			document.addHash()
+			document.addOwned(userEmail)
+
 			// Return
-			c.JSON(200, question)
+			c.JSON(http.StatusOK, document)
 		})
-		authorized.GET("/answers/:id", func(c *gin.Context) {
+		authorized.GET("/document/:id/data", func(c *gin.Context) {
 			// Get user
 			userEmail := c.GetString("userEmail")
 
-			// Get answer id
-			id := c.Param("id")
-
-			// Get user's documents from database
-			answer, err := GetAnswer(userEmail, id)
+			// Get document id
+			id, err := hashToID(c.Param("id"))
 			if err != nil {
 				handleErr(c, err)
 				return
 			}
 
-			// Return
-			c.JSON(200, answer)
+			// Get document from database to ensure we have permission
+			// to access this endpoint
+			_, err = GetDocument(userEmail, id)
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Get data from disk
+			data, err := GetData(id)
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Return as binary data
+			c.Header("Content-Type", "application/octet-stream")
+			c.Writer.Write(data)
+
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
 		})
-		authorized.POST("/questions", func(c *gin.Context) {
+		authorized.GET("/document/:id/children", func(c *gin.Context) {
 			// Get user
 			userEmail := c.GetString("userEmail")
 
-			// Get request body
+			// Get document id
+			id, err := hashToID(c.Param("id"))
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Get documents that have this as a parent
+			documents, err := GetDocumentChildren(userEmail, id)
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Convert IDs to hashes
+			for i := range documents {
+				documents[i].addHash()
+				documents[i].addOwned(userEmail)
+			}
+
+			// Return
+			c.JSON(http.StatusOK, documents)
+		})
+		authorized.POST("/document/:id/children", func(c *gin.Context) {
+			// Get user
+			userEmail := c.GetString("userEmail")
+
+			// Get document id
+			parentID, err := hashToID(c.Param("id"))
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Get the parent so we can set the default visibility
+			// to the visibility of the parent
+			parent, err := GetDocument(userEmail, parentID)
+			if err != nil {
+				handleErr(c, err)
+			}
+			newDoc := Document{
+				Parent: &parent.ID,
+				Visibility: parent.Visibility,
+				Owner: userEmail,
+			}
+
+			// Add the document to the database
+			newDocID, err := PostDocument(newDoc)
+			if err != nil {
+				handleErr(c, err)
+			}
+
+			// Get raw data from HTTP request body
 			data, err := c.GetRawData()
-			fatal(err)
-
-			// Get visibility query parameter
-			visibility := visibilityToInt[c.DefaultQuery("visibility", "shareable")]
-
-			// Generate uuid
-			id := uuid.New().String()
-
-			// Add question to DB
-			doc := Question{id, userEmail, visibility, string(data)}
-			err = PostQuestion(userEmail, doc)
 			if err != nil {
 				handleErr(c, err)
 				return
 			}
 
+			// Write data to disk
+			err = SetData(newDocID, data)
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Convert ID to hash
+			newDocIDHash, err := idToHash(newDocID)
+			if err != nil {
+				handleErr(c, err)
+			}
+
 			// Return
-			c.JSON(201, id)
+			c.String(http.StatusOK, newDocIDHash)
 		})
-		authorized.POST("/answers", func(c *gin.Context) {
+		authorized.POST("/document", func(c *gin.Context) {
 			// Get user
 			userEmail := c.GetString("userEmail")
 
-			// Get request body
+			// Parse the document from JSON
+			var doc Document
+			err := c.ShouldBindJSON(&doc)
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+			// Set the document owner from the user's Google Auth
+			doc.Owner = userEmail
+
+			// Convert user given hashes to IDs
+			err = doc.addID()
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Add document to DB
+			newID, err := PostDocument(doc)
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Convert new ID to hash
+			hashedID, err := idToHash(newID)
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Return hashed ID as application/text
+			c.String(http.StatusCreated, hashedID)
+		})
+		authorized.PUT("/document/:id", func(c *gin.Context) {
+			// Get user
+			userEmail := c.GetString("userEmail")
+
+			// Get document id
+			id, err := hashToID(c.Param("id"))
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Parse the document from JSON
+			var doc Document
+			err = c.ShouldBindJSON(&doc)
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+			// Convert user-given parent hash and ID hash to IDs
+			err = doc.addID()
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Set the document owner from the user's Google Auth
+			doc.Owner = userEmail
+			// Set the document based on the URL param
+			doc.ID = id
+
+			// Add document to DB
+			err = EditDocument(doc)
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Return hashed ID as application/text
+			c.String(http.StatusOK, "ok")
+		})
+		authorized.PUT("/document/:id/data", func(c *gin.Context) {
+			// Get user
+			userEmail := c.GetString("userEmail")
+
+			// Get document id
+			id, err := hashToID(c.Param("id"))
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Get document from database to ensure we have permission
+			// to access this endpoint
+			_, err = GetDocument(userEmail, id)
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Get raw data from HTTP request body
 			data, err := c.GetRawData()
-			fatal(err)
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
 
-			// Get visibility query parameter
-			visibility := visibilityToInt[c.DefaultQuery("visibility", "shareable")]
-
-			// Get question
-			questionID := c.Query("question_id")
-
-			// Generate uuid
-			id := uuid.New().String()
-
-			// Add answer to database
-			doc := Answer{id, questionID, visibility, string(data)}
-			err = PostAnswer(userEmail, doc)
+			// Write data to disk
+			err = SetData(id, data)
 			if err != nil {
 				handleErr(c, err)
 				return
 			}
 
 			// Return
-			c.JSON(201, id)
+			c.String(http.StatusOK, "ok")
+		})
+		authorized.DELETE("/document/:id", func(c *gin.Context) {
+			// Get user
+			userEmail := c.GetString("userEmail")
+
+			// Get document id
+			id, err := hashToID(c.Param("id"))
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			// Build a document object that is used to query the database for
+			// the delete request
+			doc := Document{ID: id, Owner: userEmail}
+
+			err = DeleteDocument(doc)
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			c.String(http.StatusOK, "ok")
 		})
 	}
 	return r
-}
 
-// SetupDB sets up the SQLite database
-func SetupDB() {
-	os.RemoveAll(dataDir)
-	os.Mkdir(dataDir, 0755)
-
-	db, err := sql.Open("sqlite3", dbFile)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
-
-	sqlStmt := `
-	CREATE TABLE questions (id TEXT NOT NULL PRIMARY KEY, owner TEXT, visibility INTEGER);
-	DELETE FROM questions;
-	CREATE TABLE answers (id TEXT NOT NULL PRIMARY KEY, question TEXT, visibility INTEGER);
-	DELETE FROM answers;
-	`
-	_, err = db.Exec(sqlStmt)
-	if err != nil {
-		log.Printf("%q: %s\n", err, sqlStmt)
-		return
-	}
 }

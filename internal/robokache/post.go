@@ -1,75 +1,41 @@
 package robokache
 
 import (
-	"database/sql"
-	"errors"
 	"fmt"
-	"io/ioutil"
-	"log"
-
-	_ "github.com/mattn/go-sqlite3" // makes database/sql point to SQLite
+	"database/sql"
 )
 
-// PostQuestion stores a question. It fails if question.owner != user.
-func PostQuestion(userEmail string, question Question) error {
-	// Check that the question is to be owned by the posting user
-	if userEmail != question.Owner {
-		return errors.New("Unauthorized: You do not own this question and may not add it")
+// PostDocument stores a document in the DB. It fails if question.owner != user.
+func PostDocument(doc Document) (int, error) {
+	if doc.Parent != nil {
+		// Check that the parent:
+		// 1. Exists
+		// 2. Has the same owner
+		// 3. Has more or the same visibility than the child
+		var parent Document
+		row := db.QueryRowx(
+			`SELECT * FROM document WHERE
+			 id=? AND owner=? AND visibility>=?
+			 `, doc.Parent, doc.Owner, doc.Visibility)
+		err := row.StructScan(&parent)
+		if err == sql.ErrNoRows {
+			return -1, fmt.Errorf("Bad Request: Check that the parent exists and does not have less visibility than the child you are trying to add.")
+		} else if err != nil {
+			return -1, err
+		}
 	}
-
-	// Connect to SQLite
-	db, err := sql.Open("sqlite3", dbFile)
-	if err != nil {
-		panic(err)
-	}
-	defer db.Close()
-
 	// Add question to DB
-	sqlStmt := fmt.Sprintf(`
-	INSERT INTO questions(id, owner, visibility) VALUES
-	('%s', '%s', %d);
-	`, question.ID, question.Owner, question.Visibility)
-	_, err = db.Exec(sqlStmt)
+	result, err := db.Exec(`
+		INSERT INTO document(owner, parent, visibility) VALUES
+		(?, ?, ?);
+	`, doc.Owner, doc.Parent, doc.Visibility)
+
 	if err != nil {
-		log.Printf("%q: %s\n", err, sqlStmt)
-		return err
+		return -1, err
 	}
-
-	// Create question file
-	err = ioutil.WriteFile(dataDir+"/"+question.ID+".json", []byte(question.Data), 0644)
-	return err
-}
-
-// PostAnswer adds an answer. If fails if answer.question.owner != user.
-func PostAnswer(userEmail string, answer Answer) error {
-	// Confirm that such a question exists and we can add answers
-	question, err := GetQuestion(userEmail, answer.Question)
+	newId, err := result.LastInsertId()
 	if err != nil {
-		return err
+		return -1, err
 	}
-	if !(question["owned"].(bool)) {
-		return errors.New("Unauthorized: You do not own this question and may not add answers")
-	}
-
-	// Open SQLite connection
-	db, err := sql.Open("sqlite3", dbFile)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
-
-	// Add answer to DB
-	sqlStmt := fmt.Sprintf(`
-	INSERT INTO answers (id, question, visibility)
-	VALUES ('%s', '%s', %d);
-	`, answer.ID, answer.Question, answer.Visibility)
-	_, err = db.Exec(sqlStmt)
-	if err != nil {
-		log.Printf("%q: %s\n", err, sqlStmt)
-		return err
-	}
-
-	// Add answer file
-	err = ioutil.WriteFile(dataDir+"/"+answer.ID+".json", []byte(answer.Data), 0644)
-	return err
+	return int(newId), nil
 }

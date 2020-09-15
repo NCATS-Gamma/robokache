@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: Robokache
-  description: Q&A store for ROBOKOP
-  version: 2.0.0
+  description: Large object document store for ROBOKOP
+  version: 3.0.0
   contact:
     email: patrick@covar.com
   license:
@@ -11,115 +11,155 @@ info:
 security:
   - google: []
 paths:
-  /api/questions:
+  /api/document:
+    get:
+      summary: Get documents
+      description: Get a list of documents that are either public or associated with the current user
+      responses:
+        '200':
+          description: Documents
+          content:
+            application/json:
+              schema:
+                type: array
+                # Include ID along with the document
+                items:
+                  allOf:
+                   - $ref: '#/components/schemas/Document'
+                   - properties:
+                       id:
+                         type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
     post:
-      summary: Create a question
+      summary: Create a document
       requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Document'
+      responses:
+        '201':
+          $ref: '#/components/responses/IdOfCreated'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+  /api/document/{id}:
+    get:
+      summary: Get document by ID
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: Document
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NoSuchDocument'
+    put:
+      summary: Update fields of document
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Document'
+      responses:
+        '200':
+          description: Successfully updated
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NoSuchDocument'
+    delete:
+      summary: Delete document by ID
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: Deleted successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NoSuchDocument'
+  /api/document/{id}/children:
+    get:
+      summary: Get documents that have this document as a parent
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: List of documents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  allOf:
+                    - $ref: '#/components/schemas/Document'
+                    - properties:
+                        id:
+                          type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+    post:
+      summary: Create a new child document and set data field
+      description: Shorthand to create a child document and set the data field using only one route. This creates the document with default values for fields.
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        description: Data object
         content:
           application/json:
             schema:
               type: string
       responses:
-        '201':
-          description: Question created
-          content:
-            application/json:
-              schema:
-                type: string
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
+        '200':
+          $ref: '#/components/responses/IdOfCreated'
+  /api/document/{id}/data:
     get:
-      summary: Get questions
+      summary: Get the data associated with this document
+      parameters:
+        - $ref: '#/components/parameters/PathId'
       responses:
         '200':
-          description: Questions
-          content:
-            application/json:
+          description: Binary data
+          content: 
+            application/octet-stream:
               schema:
                 type: string
+                format: binary
         '401':
           $ref: '#/components/responses/UnauthorizedError'
-  /api/questions/{id}:
-    get:
-      summary: Get question by ID
+    put:
+      summary: Set the data associated with this document
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Question
-          content:
-            application/json:
-              schema:
-                type: string
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '404':
-          $ref: '#/components/responses/NoSuchDocument'
-  /api/answers/{id}:
-    get:
-      summary: Get answer by ID
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Answer
-          content:
-            application/json:
-              schema:
-                type: string
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '404':
-          $ref: '#/components/responses/NoSuchDocument'
-  /api/answers:
-    post:
-      summary: Create an answer
-      parameters:
-        - name: question_id
-          in: query
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/PathId'
       requestBody:
-        content:
-          application/json:
+        description: Data object
+        content: 
+          application/octet-stream:
             schema:
               type: string
-      responses:
-        '201':
-          description: Answer created
-          content:
-            application/json:
-              schema:
-                type: string
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-    get:
-      summary: Get answers by question ID
-      parameters:
-        - name: question_id
-          in: query
-          required: true
-          schema:
-            type: string
+              format: binary
       responses:
         '200':
-          description: Answers
-          content:
-            application/json:
-              schema:
-                type: string
+          description: Successfully Updated
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+
 components:
+  schemas:
+    Document:
+      properties:
+        parent:
+          type: string
+        visibility:
+          type: integer
   securitySchemes:
     google:
       type: http
@@ -130,3 +170,15 @@ components:
       description: Access token is missing or invalid
     NoSuchDocument:
       description: Document ID not found
+    IdOfCreated:
+      description: ID of created document
+      content:
+        application/text:
+          example: 1234
+  parameters:
+    PathId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string

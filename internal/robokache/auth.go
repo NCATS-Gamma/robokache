@@ -47,18 +47,24 @@ func GetUser(c *gin.Context) {
 	// Verify token authenticity
 	token, err := jwt.ParseWithClaims(reqToken, &jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		resp, err := Client.Get("https://www.googleapis.com/oauth2/v1/certs")
-		fatal(err)
+		if err != nil {
+			return nil, err
+		}
 		if resp.StatusCode != 200 {
 			return nil, errors.New("Failed to contact certification authority")
 		}
 		defer resp.Body.Close()
 		body, err := ioutil.ReadAll(resp.Body)
-		fatal(err)
+		if err != nil {
+			return nil, err
+		}
 		var certs map[string]string
 		json.Unmarshal(body, &certs)
 		pem := certs[token.Header["kid"].(string)]
 		verifyKey, err := jwt.ParseRSAPublicKeyFromPEM([]byte(pem))
-		fatal(err)
+		if err != nil {
+			return nil, err
+		}
 		return verifyKey, nil
 	})
 	if err != nil {
