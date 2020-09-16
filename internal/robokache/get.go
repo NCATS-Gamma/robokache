@@ -11,15 +11,24 @@ import (
 )
 
 // GetDocument gets all documents where owner = user OR visibility >= public.
-func GetDocuments(userEmail string) ([]Document, error) {
+func GetDocuments(userEmail string, hasParent *bool) ([]Document, error) {
 	// Slice of rows
 	var docs []Document
+	var err error
 
-	// Get rows user is allowed to see
-	err := db.Select(&docs, `
+	queryString := `
 		SELECT * FROM document
-		WHERE owner=? OR visibility>=?
-	`, userEmail, public)
+		WHERE (owner=? OR visibility>=?)`
+	// If we are given hasParent add that to the query
+	if hasParent != nil {
+		if *hasParent {
+			queryString += "AND parent IS NOT NULL"
+		} else {
+			queryString += "AND parent IS NULL"
+		}
+	}
+
+	err = db.Select(&docs, queryString, userEmail, public)
 
 	if err != nil {
 		return nil, err

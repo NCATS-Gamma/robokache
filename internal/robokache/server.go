@@ -3,6 +3,7 @@ package robokache
 import (
 	"net/http"
 	"strings"
+	"fmt"
 	"github.com/gin-gonic/gin"
 )
 
@@ -31,6 +32,11 @@ func AddGUI(r *gin.Engine) {
 	r.Static("/docs", "./api")
 }
 
+// Query parameters for Document get request
+type GetDocumentQuery struct {
+	HasParent *bool `form:"hasParent"`
+}
+
 // SetupRouter sets up the router
 func SetupRouter() *gin.Engine {
 	r := gin.Default()
@@ -43,8 +49,15 @@ func SetupRouter() *gin.Engine {
 			// Get user
 			userEmail := c.GetString("userEmail")
 
+			// Parse query parameters into queryParams struct
+			var queryParams GetDocumentQuery
+			err := c.ShouldBindQuery(&queryParams)
+			if err != nil {
+				handleErr(c, fmt.Errorf("Bad Request: Error parsing query parameters"))
+			}
+
 			// Get user's documents from database
-			documents, err := GetDocuments(userEmail)
+			documents, err := GetDocuments(userEmail, queryParams.HasParent)
 			if err != nil {
 				handleErr(c, err)
 				return
