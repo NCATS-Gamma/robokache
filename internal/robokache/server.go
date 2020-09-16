@@ -40,12 +40,11 @@ type GetDocumentQuery struct {
 // SetupRouter sets up the router
 func SetupRouter() *gin.Engine {
 	r := gin.Default()
+	api := r.Group("/api")
 
-	// Serve secured endpoints
-	authorized := r.Group("/api")
-	authorized.Use(GetUser)
+	// GET endpoints don't necessarily require auth
 	{
-		authorized.GET("/document", func(c *gin.Context) {
+		api.GET("/document", func(c *gin.Context) {
 			// Get user
 			userEmail := c.GetString("userEmail")
 
@@ -72,7 +71,7 @@ func SetupRouter() *gin.Engine {
 			// Return
 			c.JSON(http.StatusOK, documents)
 		})
-		authorized.GET("/document/:id", func(c *gin.Context) {
+		api.GET("/document/:id", func(c *gin.Context) {
 			// Get user
 			userEmail := c.GetString("userEmail")
 
@@ -96,7 +95,7 @@ func SetupRouter() *gin.Engine {
 			// Return
 			c.JSON(http.StatusOK, document)
 		})
-		authorized.GET("/document/:id/data", func(c *gin.Context) {
+		api.GET("/document/:id/data", func(c *gin.Context) {
 			// Get user
 			userEmail := c.GetString("userEmail")
 
@@ -123,7 +122,7 @@ func SetupRouter() *gin.Engine {
 				return
 			}
 		})
-		authorized.GET("/document/:id/children", func(c *gin.Context) {
+		api.GET("/document/:id/children", func(c *gin.Context) {
 			// Get user
 			userEmail := c.GetString("userEmail")
 
@@ -150,6 +149,12 @@ func SetupRouter() *gin.Engine {
 			// Return
 			c.JSON(http.StatusOK, documents)
 		})
+	}
+
+	// Serve secured endpoints for all routes that can modify data
+	authorized := api.Group("")
+	authorized.Use(GetUser)
+	{
 		authorized.POST("/document/:id/children", func(c *gin.Context) {
 			// Get user
 			userEmail := c.GetString("userEmail")
