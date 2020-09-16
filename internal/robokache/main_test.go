@@ -121,7 +121,7 @@ func TestGetDocumentsNoParent(t *testing.T) {
 	clearDB(); loadSampleData()
 
   // Gets root documents
-	w := performRequest(router, "GET", "/api/document?hasParent=false", signedString, nil)
+	w := performRequest(router, "GET", "/api/document?has_parent=false", signedString, nil)
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	var response []map[string]interface{}
@@ -139,7 +139,7 @@ func TestGetDocumentsHasParent(t *testing.T) {
 	clearDB(); loadSampleData()
 
     // Gets root documents
-	w := performRequest(router, "GET", "/api/document?hasParent=true", signedString, nil)
+	w := performRequest(router, "GET", "/api/document?has_parent=true", signedString, nil)
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	var response []map[string]interface{}

@@ -34,7 +34,7 @@ func AddGUI(r *gin.Engine) {
 
 // Query parameters for Document get request
 type GetDocumentQuery struct {
-	HasParent *bool `form:"hasParent"`
+	HasParent *bool `form:"has_parent"`
 }
 
 // SetupRouter sets up the router
