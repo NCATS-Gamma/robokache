@@ -14,5 +14,5 @@ func getenv(key string, defaultValue string) string {
 
 var (
 	dataDir = getenv("ROBOKACHE_DATA_DIR", "./data")
-	dbFile  = dataDir + "/q&a.db"
+	dbFile  = dataDir + "/db.sqlite3"
 )

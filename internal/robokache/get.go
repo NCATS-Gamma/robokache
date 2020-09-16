@@ -2,7 +2,7 @@ package robokache
 
 import (
 	"os"
-	"io/ioutil"
+	"io"
 	"database/sql"
 	"fmt"
 	"strconv"
@@ -64,22 +64,29 @@ func GetDocumentChildren(userEmail string, id int) ([]Document, error) {
 	return docs, nil
 }
 
-func GetData(id int) ([]byte, error) {
-	filename := dataDir + "/" + strconv.Itoa(id)
+func GetData(id int, w io.Writer) error {
+	filename := dataDir + "/files/" + strconv.Itoa(id)
 
-	// If the file does not exist, return empty data
 	_, err := os.Stat(filename)
 	if os.IsNotExist(err) {
-	    return []byte{}, nil
+		// If the file does not exist write nothing and just return
+	    return nil
 	} else if err != nil {
-		return nil, err
+		return err
 	}
-	// Read associated JSON file
-	data, err := ioutil.ReadFile(filename)
 
+	// Open data file
+	file, err := os.Open(filename)
 	if err != nil {
-		return nil, err
+		return err
+	}
+	defer file.Close()
+
+	// Use io.Copy to write without a buffer
+	_, err = io.Copy(w, file)
+	if err != nil {
+		return err
 	}
 
-	return data, nil
+	return nil
 }

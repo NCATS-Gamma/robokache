@@ -197,6 +197,18 @@ func TestGetPutData(t *testing.T) {
 	assert.Equal(t, requestBody, w.Body.String())
 }
 
+func TestGetNoData(t *testing.T) {
+	clearDB(); loadSampleData()
+
+	id, _ := idToHash(1)
+	w := performRequest(router, "GET",
+			fmt.Sprintf(`/api/document/%s/data`, id),
+			signedString, nil)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "", w.Body.String())
+}
+
 // Test the shortcut route to add a child with data
 func TestPostChildWithData(t *testing.T) {
 	clearDB(); loadSampleData()
@@ -361,19 +373,36 @@ func TestBadToken(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
-func TestGetPutLargeData(t *testing.T) {
-	clearDB(); loadSampleData()
+// Benchmark to test how the application handles large files
+
+func BenchmarkGetPutLargeData(b *testing.B) {
+	var testBytes []byte
+	var testString string
+
+	// File size in MB
+	testFileSize := 1024 * 1024 * 100
+
+	testBytes = make([]byte, testFileSize)
+	for i := 0; i < testFileSize; i++ {
+		testBytes[i] = 'a' + byte(i%26)
+	}
+	testString = string(testBytes)
 
 	id, _ := idToHash(1)
-	requestBody := "This is a string to test the data saving functionality"
-	w := performRequest(router, "PUT",
-			fmt.Sprintf(`/api/document/%s/data`, id),
-			signedString, &requestBody)
-	assert.Equal(t, http.StatusOK, w.Code)
 
-	w = performRequest(router, "GET",
-			fmt.Sprintf(`/api/document/%s/data`, id),
-			signedString, &requestBody)
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, requestBody, w.Body.String())
+	// Repeat benchmark to get accurate timing data
+	for i := 0; i < b.N; i++ {
+		loadSampleData()
+		b.StartTimer()
+
+		performRequest(router, "PUT",
+				fmt.Sprintf(`/api/document/%s/data`, id),
+				signedString, &testString)
+		performRequest(router, "GET",
+				fmt.Sprintf(`/api/document/%s/data`, id),
+				signedString, nil)
+
+		b.StopTimer()
+		clearDB()
+	}
 }

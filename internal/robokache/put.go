@@ -3,7 +3,8 @@ package robokache
 import (
 	"fmt"
 	"database/sql"
-	"io/ioutil"
+	"io"
+	"os"
 	"strconv"
 )
 
@@ -63,9 +64,18 @@ func EditDocument(doc Document) error {
 	return nil
 }
 
-func SetData(id int, data []byte) error {
-	filename := dataDir + "/" + strconv.Itoa(id)
-	err := ioutil.WriteFile(filename, data, 0644)
+func SetData(id int, r io.Reader) error {
+	filename := dataDir + "/files/" + strconv.Itoa(id)
+
+	// Open file for writing
+	file, err := os.Create(filename)
+	if err != nil {
+		return nil
+	}
+	defer file.Close()
+
+	// Use io.Copy to write without a buffer
+	_, err = io.Copy(file, r)
 	if err != nil {
 		return err
 	}

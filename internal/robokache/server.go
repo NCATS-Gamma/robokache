@@ -102,17 +102,9 @@ func SetupRouter() *gin.Engine {
 				return
 			}
 
-			// Get data from disk
-			data, err := GetData(id)
-			if err != nil {
-				handleErr(c, err)
-				return
-			}
-
-			// Return as binary data
 			c.Header("Content-Type", "application/octet-stream")
-			c.Writer.Write(data)
-
+			// Get data from disk and write it to HTTP response
+			err = GetData(id, c.Writer)
 			if err != nil {
 				handleErr(c, err)
 				return
@@ -174,15 +166,8 @@ func SetupRouter() *gin.Engine {
 				handleErr(c, err)
 			}
 
-			// Get raw data from HTTP request body
-			data, err := c.GetRawData()
-			if err != nil {
-				handleErr(c, err)
-				return
-			}
-
 			// Write data to disk
-			err = SetData(newDocID, data)
+			err = SetData(newDocID, c.Request.Body)
 			if err != nil {
 				handleErr(c, err)
 				return
@@ -294,15 +279,8 @@ func SetupRouter() *gin.Engine {
 				return
 			}
 
-			// Get raw data from HTTP request body
-			data, err := c.GetRawData()
-			if err != nil {
-				handleErr(c, err)
-				return
-			}
-
 			// Write data to disk
-			err = SetData(id, data)
+			err = SetData(id, c.Request.Body)
 			if err != nil {
 				handleErr(c, err)
 				return
