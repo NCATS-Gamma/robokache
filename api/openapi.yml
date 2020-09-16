@@ -15,6 +15,12 @@ paths:
     get:
       summary: Get documents
       description: Get a list of documents that are either public or associated with the current user
+      parameters:
+        - in: query
+          name: has_parent
+          schema:
+            type: boolean
+          description: If given, filter by whether the document has a parent.
       responses:
         '200':
           description: Documents

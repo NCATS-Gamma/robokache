@@ -117,6 +117,43 @@ func TestGetDocuments(t *testing.T) {
 	assert.Equal(t, 6, len(response))
 }
 
+func TestGetDocumentsNoParent(t *testing.T) {
+	clearDB(); loadSampleData()
+
+  // Gets root documents
+	w := performRequest(router, "GET", "/api/document?has_parent=false", signedString, nil)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response []map[string]interface{}
+	err := json.Unmarshal([]byte(w.Body.String()), &response)
+	assert.Nil(t, err)
+
+	// Should be able to see my root documents (2) + you root public documents (1)
+	assert.Equal(t, 3, len(response))
+	for _, doc := range response {
+		assert.Equal(t, "", doc["parent"])
+	}
+}
+
+func TestGetDocumentsHasParent(t *testing.T) {
+	clearDB(); loadSampleData()
+
+    // Gets root documents
+	w := performRequest(router, "GET", "/api/document?has_parent=true", signedString, nil)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response []map[string]interface{}
+	err := json.Unmarshal([]byte(w.Body.String()), &response)
+	assert.Nil(t, err)
+
+	// Should be able to see my child documents (2) + you child public documents (1)
+	assert.Equal(t, 3, len(response))
+	for _, doc := range response {
+		t.Log(doc)
+		assert.NotEqual(t, "", doc["parent"])
+	}
+}
+
 func TestGetMePrivateDocument(t *testing.T) {
 	clearDB(); loadSampleData()
 
