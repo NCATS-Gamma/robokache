@@ -19,5 +19,8 @@ COPY . .
 # Build the Go app
 RUN go build -o main cmd/main.go
 
+# Set Gin to run in release mode
+ENV GIN_MODE release
+
 # Set executable as default command
 CMD ["./main"]
