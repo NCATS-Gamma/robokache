@@ -64,7 +64,7 @@ func GetDocumentChildren(userEmail string, id int) ([]Document, error) {
 	err := db.Select(&docs, `
 		SELECT * FROM document
 		WHERE parent=? AND (owner=? OR visibility>=?)`,
-	id, userEmail, public)
+	id, userEmail, shareable)
 
 	if err != nil {
 		return docs, err
