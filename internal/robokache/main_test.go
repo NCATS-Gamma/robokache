@@ -270,6 +270,15 @@ func TestGetChildren(t *testing.T) {
 	assert.Equal(t, 2, len(response))
 }
 
+func TestGetChildrenPrivateDoc(t *testing.T) {
+	clearDB(); loadSampleData()
+
+	// Can't view other users' child documents
+	hashedID, _ := idToHash(6)
+	w := performRequest(router, "GET", "/api/document/" + hashedID + "/children", &signedString, nil)
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
 func TestGetPutData(t *testing.T) {
 	clearDB(); loadSampleData()
 
