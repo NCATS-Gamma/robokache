@@ -171,6 +171,14 @@ func SetupRouter() *gin.Engine {
 				return
 			}
 
+			// Get document from database to ensure we have permission
+			// to access this endpoint
+			_, err = GetDocument(userEmail, id)
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
 			// Get documents that have this as a parent
 			documents, err := GetDocumentChildren(userEmail, id)
 			if err != nil {
