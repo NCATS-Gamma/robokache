@@ -45,17 +45,27 @@ func SetupRouter() *gin.Engine {
 	// GET endpoints don't necessarily require auth
 	{
 		api.GET("/document", func(c *gin.Context) {
-			// Get user
-			userEmail := c.GetString("userEmail")
+			var userEmail *string
+			// Check if we have been provided authorization
+			reqToken, err := GetRequestBearerToken(c)
+			if err == nil {
+				// If we are given an authorization token
+				// get the user email associated
+				userEmail, err = GetUser(reqToken)
+				if err != nil {
+					handleErr(c, err)
+					return
+				}
+			}
 
 			// Parse query parameters into queryParams struct
 			var queryParams GetDocumentQuery
-			err := c.ShouldBindQuery(&queryParams)
+			err = c.ShouldBindQuery(&queryParams)
 			if err != nil {
 				handleErr(c, fmt.Errorf("Bad Request: Error parsing query parameters"))
 			}
 
-			// Get user's documents from database
+			// Get documents from database
 			documents, err := GetDocuments(userEmail, queryParams.HasParent)
 			if err != nil {
 				handleErr(c, err)
@@ -65,15 +75,27 @@ func SetupRouter() *gin.Engine {
 			// Relace the ID with a hashed ID for each document
 			for i := range documents {
 				documents[i].addHash()
-				documents[i].addOwned(userEmail)
+				if userEmail != nil {
+					documents[i].addOwned(*userEmail)
+				}
 			}
 
 			// Return
 			c.JSON(http.StatusOK, documents)
 		})
 		api.GET("/document/:id", func(c *gin.Context) {
-			// Get user
-			userEmail := c.GetString("userEmail")
+			var userEmail *string
+			// Check if we have been provided authorization
+			reqToken, err := GetRequestBearerToken(c)
+			if err == nil {
+				// If we are given an authorization token
+				// get the user email associated
+				userEmail, err = GetUser(reqToken)
+				if err != nil {
+					handleErr(c, err)
+					return
+				}
+			}
 
 			// Get document id
 			id, err := hashToID(c.Param("id"))
@@ -90,14 +112,26 @@ func SetupRouter() *gin.Engine {
 			}
 
 			document.addHash()
-			document.addOwned(userEmail)
+			if userEmail != nil {
+				document.addOwned(*userEmail)
+			}
 
 			// Return
 			c.JSON(http.StatusOK, document)
 		})
 		api.GET("/document/:id/data", func(c *gin.Context) {
-			// Get user
-			userEmail := c.GetString("userEmail")
+			var userEmail *string
+			// Check if we have been provided authorization
+			reqToken, err := GetRequestBearerToken(c)
+			if err == nil {
+				// If we are given an authorization token
+				// get the user email associated
+				userEmail, err = GetUser(reqToken)
+				if err != nil {
+					handleErr(c, err)
+					return
+				}
+			}
 
 			// Get document id
 			id, err := hashToID(c.Param("id"))
@@ -123,8 +157,18 @@ func SetupRouter() *gin.Engine {
 			}
 		})
 		api.GET("/document/:id/children", func(c *gin.Context) {
-			// Get user
-			userEmail := c.GetString("userEmail")
+			var userEmail *string
+			// Check if we have been provided authorization
+			reqToken, err := GetRequestBearerToken(c)
+			if err == nil {
+				// If we are given an authorization token
+				// get the user email associated
+				userEmail, err = GetUser(reqToken)
+				if err != nil {
+					handleErr(c, err)
+					return
+				}
+			}
 
 			// Get document id
 			id, err := hashToID(c.Param("id"))
@@ -143,7 +187,9 @@ func SetupRouter() *gin.Engine {
 			// Convert IDs to hashes
 			for i := range documents {
 				documents[i].addHash()
-				documents[i].addOwned(userEmail)
+				if userEmail != nil {
+					documents[i].addOwned(*userEmail)
+				}
 			}
 
 			// Return
@@ -153,7 +199,7 @@ func SetupRouter() *gin.Engine {
 
 	// Serve secured endpoints for all routes that can modify data
 	authorized := api.Group("")
-	authorized.Use(GetUser)
+	authorized.Use(AddUserToContext)
 	{
 		authorized.POST("/document/:id/children", func(c *gin.Context) {
 			// Get user
@@ -168,7 +214,7 @@ func SetupRouter() *gin.Engine {
 
 			// Get the parent so we can set the default visibility
 			// to the visibility of the parent
-			parent, err := GetDocument(userEmail, parentID)
+			parent, err := GetDocument(&userEmail, parentID)
 			if err != nil {
 				handleErr(c, err)
 			}
@@ -291,7 +337,7 @@ func SetupRouter() *gin.Engine {
 
 			// Get document from database to ensure we have permission
 			// to access this endpoint
-			_, err = GetDocument(userEmail, id)
+			_, err = GetDocument(&userEmail, id)
 			if err != nil {
 				handleErr(c, err)
 				return

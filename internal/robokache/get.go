@@ -11,7 +11,7 @@ import (
 )
 
 // GetDocument gets all documents where owner = user OR visibility >= public.
-func GetDocuments(userEmail string, hasParent *bool) ([]Document, error) {
+func GetDocuments(userEmail *string, hasParent *bool) ([]Document, error) {
 	// Slice of rows
 	var docs []Document
 	var err error
@@ -38,7 +38,7 @@ func GetDocuments(userEmail string, hasParent *bool) ([]Document, error) {
 
 // Getdocument gets a document by ID.
 // It fails if its owner != user AND visibility < shareable.
-func GetDocument(userEmail string, id int) (Document, error) {
+func GetDocument(userEmail *string, id int) (Document, error) {
 	var doc Document
 
 	// Get rows user is allowed to see
@@ -48,7 +48,7 @@ func GetDocument(userEmail string, id int) (Document, error) {
 	`, id, userEmail, shareable)
 
 	if err == sql.ErrNoRows {
-		return doc, fmt.Errorf("Not Found: document %d", id)
+		return doc, fmt.Errorf("Not Found: Check that the document exists and that you have permission to view it.")
 	} else if err != nil {
 		return doc, err
 	}
@@ -58,7 +58,7 @@ func GetDocument(userEmail string, id int) (Document, error) {
 }
 
 // Get all the documents with given id as the parent
-func GetDocumentChildren(userEmail string, id int) ([]Document, error) {
+func GetDocumentChildren(userEmail *string, id int) ([]Document, error) {
 	var docs []Document
 
 	err := db.Select(&docs, `
