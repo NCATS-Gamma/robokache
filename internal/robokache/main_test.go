@@ -43,14 +43,17 @@ func (m *MockClient) Get(url string) (*http.Response, error) {
 	}, nil
 }
 
-func performRequest(r http.Handler, method, path string, jwt string, body *string) *httptest.ResponseRecorder {
+func performRequest(r http.Handler, method, path string, jwt *string, body *string) *httptest.ResponseRecorder {
 	var req *http.Request
 	if body == nil {
 		req, _ = http.NewRequest(method, path, nil)
 	} else {
 		req, _ = http.NewRequest(method, path, strings.NewReader(*body))
 	}
-	req.Header.Add("Authorization", "Bearer "+jwt)
+	if jwt != nil {
+		req.Header.Add("Authorization", "Bearer "+ *jwt)
+	}
+
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	return w
@@ -100,13 +103,26 @@ func init() {
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	token.Header["kid"] = "default"
 	signedString, _ = token.SignedString(signKey)
+}
 
+func TestGetDocumentsNotLoggedIn(t *testing.T) {
+	clearDB(); loadSampleData()
+
+	w := performRequest(router, "GET", "/api/document", nil, nil)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response []map[string]interface{}
+	err := json.Unmarshal([]byte(w.Body.String()), &response)
+	assert.Nil(t, err)
+
+	// Should be able to see only public documents (3)
+	assert.Equal(t, 3, len(response))
 }
 
 func TestGetDocuments(t *testing.T) {
 	clearDB(); loadSampleData()
 
-	w := performRequest(router, "GET", "/api/document", signedString, nil)
+	w := performRequest(router, "GET", "/api/document", &signedString, nil)
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	var response []map[string]interface{}
@@ -121,7 +137,7 @@ func TestGetDocumentsNoParent(t *testing.T) {
 	clearDB(); loadSampleData()
 
   // Gets root documents
-	w := performRequest(router, "GET", "/api/document?has_parent=false", signedString, nil)
+	w := performRequest(router, "GET", "/api/document?has_parent=false", &signedString, nil)
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	var response []map[string]interface{}
@@ -139,7 +155,7 @@ func TestGetDocumentsHasParent(t *testing.T) {
 	clearDB(); loadSampleData()
 
     // Gets root documents
-	w := performRequest(router, "GET", "/api/document?has_parent=true", signedString, nil)
+	w := performRequest(router, "GET", "/api/document?has_parent=true", &signedString, nil)
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	var response []map[string]interface{}
@@ -149,7 +165,6 @@ func TestGetDocumentsHasParent(t *testing.T) {
 	// Should be able to see my child documents (2) + you child public documents (1)
 	assert.Equal(t, 3, len(response))
 	for _, doc := range response {
-		t.Log(doc)
 		assert.NotEqual(t, "", doc["parent"])
 	}
 }
@@ -159,7 +174,7 @@ func TestGetMePrivateDocument(t *testing.T) {
 
 	// Can get my own private document
 	hashedID, _ := idToHash(0)
-	w := performRequest(router, "GET", "/api/document/" + hashedID, signedString, nil)
+	w := performRequest(router, "GET", "/api/document/" + hashedID, &signedString, nil)
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Check that the response looks ok
@@ -175,7 +190,7 @@ func TestGetYouPrivateDocument(t *testing.T) {
 
 	hashedID, err := idToHash(6)
 	assert.Nil(t, err)
-	w := performRequest(router, "GET", "/api/document/" + hashedID, signedString, nil)
+	w := performRequest(router, "GET", "/api/document/" + hashedID, &signedString, nil)
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
@@ -185,7 +200,7 @@ func TestGetYouShareableDocument(t *testing.T) {
 	// Can get other's shareable documents
 	hashedID, err := idToHash(5)
 	assert.Nil(t, err)
-	w := performRequest(router, "GET", "/api/document/" + hashedID, signedString, nil)
+	w := performRequest(router, "GET", "/api/document/" + hashedID, &signedString, nil)
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	var response map[string]interface{}
@@ -195,12 +210,50 @@ func TestGetYouShareableDocument(t *testing.T) {
 	assert.Equal(t, false, response["owned"])
 }
 
+func TestGetPublicDocumentNotLoggedIn(t *testing.T) {
+	clearDB(); loadSampleData()
+
+	hashedID, err := idToHash(3)
+	assert.Nil(t, err)
+	// Can get public document
+	w := performRequest(router, "GET", "/api/document/" + hashedID, nil, nil)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	err = json.Unmarshal([]byte(w.Body.String()), &response)
+	assert.Nil(t, err)
+}
+
+func TestGetShareableDocumentNotLoggedIn(t *testing.T) {
+	clearDB(); loadSampleData()
+
+	hashedID, err := idToHash(1)
+	assert.Nil(t, err)
+	// Can get shareable documents
+	w := performRequest(router, "GET", "/api/document/" + hashedID, nil, nil)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	err = json.Unmarshal([]byte(w.Body.String()), &response)
+	assert.Nil(t, err)
+}
+
+func TestGetPrivateDocumentNotLoggedIn(t *testing.T) {
+	clearDB(); loadSampleData()
+
+	hashedID, err := idToHash(0)
+	assert.Nil(t, err)
+	// Cannot get private documents
+	w := performRequest(router, "GET", "/api/document/" + hashedID, nil, nil)
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
 func TestGetChildren(t *testing.T) {
 	clearDB(); loadSampleData()
 
 	// Can see all of my own child documents
 	hashedID, _ := idToHash(1)
-	w := performRequest(router, "GET", "/api/document/" + hashedID + "/children", signedString, nil)
+	w := performRequest(router, "GET", "/api/document/" + hashedID + "/children", &signedString, nil)
 	assert.Equal(t, http.StatusOK, w.Code)
 	var response []map[string]interface{}
 	err := json.Unmarshal([]byte(w.Body.String()), &response)
@@ -210,7 +263,7 @@ func TestGetChildren(t *testing.T) {
 	// Can see public and shareable child documents if the document is not owned by me
 	hashedID, _ = idToHash(5)
 	assert.Nil(t, err)
-	w = performRequest(router, "GET", "/api/document/" + hashedID + "/children", signedString, nil)
+	w = performRequest(router, "GET", "/api/document/" + hashedID + "/children", &signedString, nil)
 	assert.Equal(t, http.StatusOK, w.Code)
 	err = json.Unmarshal([]byte(w.Body.String()), &response)
 	assert.Nil(t, err)
@@ -224,12 +277,12 @@ func TestGetPutData(t *testing.T) {
 	requestBody := "This is a string to test the data saving functionality"
 	w := performRequest(router, "PUT",
 			fmt.Sprintf(`/api/document/%s/data`, id),
-			signedString, &requestBody)
+			&signedString, &requestBody)
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	w = performRequest(router, "GET",
 			fmt.Sprintf(`/api/document/%s/data`, id),
-			signedString, &requestBody)
+			&signedString, &requestBody)
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, requestBody, w.Body.String())
 }
@@ -240,11 +293,21 @@ func TestGetNoData(t *testing.T) {
 	id, _ := idToHash(1)
 	w := performRequest(router, "GET",
 			fmt.Sprintf(`/api/document/%s/data`, id),
-			signedString, nil)
+			&signedString, nil)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "", w.Body.String())
 }
+
+// Check that we get 401 error on POST route when not logged in
+func TestPostNotLoggedIn(t *testing.T) {
+	clearDB(); loadSampleData()
+
+	requestBody := `{ "visibility" : 4 }`
+	w := performRequest(router, "POST", "/api/document", nil, &requestBody)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
 
 // Test the shortcut route to add a child with data
 func TestPostChildWithData(t *testing.T) {
@@ -254,7 +317,7 @@ func TestPostChildWithData(t *testing.T) {
 	requestBody := "This is a string to test the data saving functionality"
 	w := performRequest(router, "POST",
 			fmt.Sprintf(`/api/document/%s/children`, id),
-			signedString, &requestBody)
+			&signedString, &requestBody)
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	newDocumentIDHash := w.Body.String()
@@ -267,7 +330,7 @@ func TestPostChildWithData(t *testing.T) {
 	// Check that the document was created with the same visibility as parent
 	w = performRequest(router, "GET",
 			fmt.Sprintf(`/api/document/%s`, newDocumentIDHash),
-			signedString, &requestBody)
+			&signedString, &requestBody)
 	var response map[string]interface{}
 	err = json.Unmarshal([]byte(w.Body.String()), &response)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -278,7 +341,7 @@ func TestPostChildWithData(t *testing.T) {
 	// Check that the document data was saved correctly
 	w = performRequest(router, "GET",
 			fmt.Sprintf(`/api/document/%s/data`, newDocumentIDHash),
-			signedString, &requestBody)
+			&signedString, &requestBody)
 	assert.Equal(t, requestBody, w.Body.String())
 }
 
@@ -286,10 +349,8 @@ func TestPostChildWithData(t *testing.T) {
 func TestPostDocument(t *testing.T) {
 	clearDB(); loadSampleData()
 	requestBody := `{ "visibility" : 4 }`
-	w := performRequest(router, "POST", "/api/document", signedString, &requestBody)
+	w := performRequest(router, "POST", "/api/document", &signedString, &requestBody)
 	assert.Equal(t, http.StatusCreated, w.Code)
-
-	fmt.Println(w.Body.String())
 
 	// Check that the ID was returned
 	createdID, err := hashToID(w.Body.String())
@@ -304,7 +365,7 @@ func TestPostDocumentWithParent(t *testing.T) {
 	requestBody := fmt.Sprintf(
 			`{ "parent" : "%s", "visibility" : %d }`,
 		parentID, shareable)
-	w := performRequest(router, "POST", "/api/document", signedString, &requestBody)
+	w := performRequest(router, "POST", "/api/document", &signedString, &requestBody)
 	assert.Equal(t, http.StatusCreated, w.Code)
 
 	// Check that the ID was returned
@@ -321,7 +382,7 @@ func TestPostDocumentInvalidParent(t *testing.T) {
 	requestBody := fmt.Sprintf(
 			`{ "parent" : "%s", "visibility" : %d }`,
 		parentID, shareable)
-	w := performRequest(router, "POST", "/api/document", signedString, &requestBody)
+	w := performRequest(router, "POST", "/api/document", &signedString, &requestBody)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	// Parent document has less visibility
@@ -329,7 +390,7 @@ func TestPostDocumentInvalidParent(t *testing.T) {
 	requestBody = fmt.Sprintf(
 			`{ "parent" : "%s", "visibility" : %d }`,
 		parentID, shareable)
-	w = performRequest(router, "POST", "/api/document", signedString, &requestBody)
+	w = performRequest(router, "POST", "/api/document", &signedString, &requestBody)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
@@ -340,7 +401,7 @@ func TestPutDocument(t *testing.T) {
 	idHash, _ := idToHash(1)
 	w := performRequest(router, "PUT",
 			fmt.Sprintf(`/api/document/%s`, idHash),
-			signedString, &requestBody)
+			&signedString, &requestBody)
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
@@ -353,7 +414,7 @@ func TestPutDocumentModifyParent(t *testing.T) {
 	id, _ := idToHash(1)
 	w := performRequest(router, "PUT",
 			fmt.Sprintf(`/api/document/%s`, id),
-			signedString, &requestBody)
+			&signedString, &requestBody)
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
@@ -366,7 +427,7 @@ func TestPutDocumentInvalidParent(t *testing.T) {
 	id, _ := idToHash(1)
 	w := performRequest(router, "PUT",
 			fmt.Sprintf(`/api/document/%s`, id),
-			signedString, &requestBody)
+			&signedString, &requestBody)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	// Not owned by current user
@@ -375,7 +436,7 @@ func TestPutDocumentInvalidParent(t *testing.T) {
 	id, _ = idToHash(1)
 	w = performRequest(router, "PUT",
 			fmt.Sprintf(`/api/document/%s`, id),
-			signedString, &requestBody)
+			&signedString, &requestBody)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	// Doesn't exist
@@ -384,7 +445,7 @@ func TestPutDocumentInvalidParent(t *testing.T) {
 	id, _ = idToHash(1)
 	w = performRequest(router, "PUT",
 			fmt.Sprintf(`/api/document/%s`, id),
-			signedString, &requestBody)
+			&signedString, &requestBody)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
@@ -394,24 +455,24 @@ func TestDeleteDocument(t *testing.T) {
 	id, _ := idToHash(1)
 	w := performRequest(router, "DELETE",
 			fmt.Sprintf(`/api/document/%s`, id),
-			signedString, nil)
+			&signedString, nil)
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Can't delete other user's document
 	id, _ = idToHash(4)
 	w = performRequest(router, "DELETE",
 			fmt.Sprintf(`/api/document/%s`, id),
-			signedString, nil)
+			&signedString, nil)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestBadToken(t *testing.T) {
-	w := performRequest(router, "POST", "/api/document", "abc", nil)
+	badToken := "abc"
+	w := performRequest(router, "POST", "/api/document", &badToken, nil)
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
 // Benchmark to test how the application handles large files
-
 func BenchmarkGetPutLargeData(b *testing.B) {
 	var testBytes []byte
 	var testString string
@@ -434,10 +495,10 @@ func BenchmarkGetPutLargeData(b *testing.B) {
 
 		performRequest(router, "PUT",
 				fmt.Sprintf(`/api/document/%s/data`, id),
-				signedString, &testString)
+				&signedString, &testString)
 		performRequest(router, "GET",
 				fmt.Sprintf(`/api/document/%s/data`, id),
-				signedString, nil)
+				&signedString, nil)
 
 		b.StopTimer()
 		clearDB()

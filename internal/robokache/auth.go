@@ -32,18 +32,20 @@ func issuedByGoogle(claims *jwt.MapClaims) bool {
 		claims.VerifyIssuer("https://accounts.google.com", true)
 }
 
-// GetUser verifies authorization and sets the userEmail context
-func GetUser(c *gin.Context) {
-	// Get bearer (JWT) token from header
+// Gets bearer (JWT) token from header
+func GetRequestBearerToken(c *gin.Context) (string, error) {
 	header := c.Request.Header
 	reqToken := header.Get("Authorization")
 	splitToken := strings.Split(reqToken, "Bearer ")
 	if len(splitToken) != 2 {
-		c.AbortWithStatusJSON(401, "No Authorization header provided")
-		return
+		return "", fmt.Errorf("Invalid Authorization header")
 	}
 	reqToken = splitToken[1]
+	return reqToken, nil
+}
 
+// Verifies authorization and sets the userEmail context
+func GetUser(reqToken string) (*string, error) {
 	// Verify token authenticity
 	token, err := jwt.ParseWithClaims(reqToken, &jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		resp, err := Client.Get("https://www.googleapis.com/oauth2/v1/certs")
@@ -68,29 +70,45 @@ func GetUser(c *gin.Context) {
 		return verifyKey, nil
 	})
 	if err != nil {
-		c.AbortWithStatusJSON(401, err.Error())
-		return
+		return nil, err
 	}
 
 	// Verify claims
 	claims, ok := token.Claims.(*jwt.MapClaims)
 	if !ok {
-		panic(errors.New("token.Claims -> *jwt.MapClaims assertion failed"))
+		return nil, errors.New("token.Claims -> *jwt.MapClaims assertion failed")
 	}
 	if !token.Valid {
-		c.AbortWithStatusJSON(401, "INVALID iat/nbt/exp")
-		return
+		return nil, errors.New("INVALID iat/nbt/exp")
 	}
 	if !claims.VerifyAudience("297705140796-41v2ra13t7mm8uvu2dp554ov1btt80dg.apps.googleusercontent.com", true) {
-		c.AbortWithStatusJSON(401, fmt.Sprintf("INVALID aud: %s", (*claims)["aud"]))
-		return
+		return nil, fmt.Errorf("INVALID aud: %s", (*claims)["aud"])
 	}
 	if !issuedByGoogle(claims) {
-		c.AbortWithStatusJSON(401, fmt.Sprintf("INVALID iss: %s", (*claims)["iss"]))
+		return nil, fmt.Errorf("INVALID iss: %s", (*claims)["iss"])
+	}
+
+	userEmail := (*claims)["email"].(string)
+
+	return &userEmail, nil
+}
+
+// Runs GetUser and GetRequestBearerToken and puts the results
+// in the Gin context.
+// Aborts with Unauthorized if there are any issues.
+func AddUserToContext(c *gin.Context) {
+	reqToken, err := GetRequestBearerToken(c)
+	if err != nil {
+		c.AbortWithError(http.StatusUnauthorized, err)
+		return
+	}
+	userEmail, err := GetUser(reqToken)
+	if err != nil {
+		c.AbortWithError(http.StatusUnauthorized, err)
 		return
 	}
 
-	// Return user email
-	c.Set("userEmail", (*claims)["email"].(string))
+	// Set user email on context and continue middleware chain
+	c.Set("userEmail", *userEmail)
 	c.Next()
 }
