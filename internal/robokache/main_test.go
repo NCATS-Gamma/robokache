@@ -207,14 +207,14 @@ func TestGetChildren(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(response))
 
-	// Can see only public child documents if the document is not owned by me
+	// Can see public and shareable child documents if the document is not owned by me
 	hashedID, _ = idToHash(5)
 	assert.Nil(t, err)
 	w = performRequest(router, "GET", "/api/document/" + hashedID + "/children", signedString, nil)
 	assert.Equal(t, http.StatusOK, w.Code)
 	err = json.Unmarshal([]byte(w.Body.String()), &response)
 	assert.Nil(t, err)
-	assert.Equal(t, 1, len(response))
+	assert.Equal(t, 2, len(response))
 }
 
 func TestGetPutData(t *testing.T) {
