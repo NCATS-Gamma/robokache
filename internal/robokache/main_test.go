@@ -215,7 +215,7 @@ func TestGetPublicDocumentNotLoggedIn(t *testing.T) {
 
 	hashedID, err := idToHash(3)
 	assert.Nil(t, err)
-	// Can get shareable documents
+	// Can get public document
 	w := performRequest(router, "GET", "/api/document/" + hashedID, nil, nil)
 	assert.Equal(t, http.StatusOK, w.Code)
 
@@ -243,7 +243,7 @@ func TestGetPrivateDocumentNotLoggedIn(t *testing.T) {
 
 	hashedID, err := idToHash(0)
 	assert.Nil(t, err)
-	// Can get shareable documents
+	// Cannot get private documents
 	w := performRequest(router, "GET", "/api/document/" + hashedID, nil, nil)
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
@@ -299,7 +299,7 @@ func TestGetNoData(t *testing.T) {
 	assert.Equal(t, "", w.Body.String())
 }
 
-// Check that we get 401 error on POST and PUT routes when not logged in
+// Check that we get 401 error on POST route when not logged in
 func TestPostNotLoggedIn(t *testing.T) {
 	clearDB(); loadSampleData()
 

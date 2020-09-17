@@ -48,15 +48,16 @@ func SetupRouter() *gin.Engine {
 			var userEmail *string
 			// Check if we have been provided authorization
 			reqToken, err := GetRequestBearerToken(c)
+			// If we are given an authorization token
+			// get the user email associated
 			if err == nil {
-				// If we are given an authorization token
-				// get the user email associated
 				userEmail, err = GetUser(reqToken)
+				// If the token is invalid, always abort
 				if err != nil {
 					handleErr(c, err)
 					return
 				}
-			}
+			} // userEmail will be nil here if the user is not logged in
 
 			// Parse query parameters into queryParams struct
 			var queryParams GetDocumentQuery
@@ -75,6 +76,8 @@ func SetupRouter() *gin.Engine {
 			// Relace the ID with a hashed ID for each document
 			for i := range documents {
 				documents[i].addHash()
+				// If userEmail == nil, none of the documents will have the
+				// "owned" flag set to true
 				if userEmail != nil {
 					documents[i].addOwned(*userEmail)
 				}
@@ -85,11 +88,8 @@ func SetupRouter() *gin.Engine {
 		})
 		api.GET("/document/:id", func(c *gin.Context) {
 			var userEmail *string
-			// Check if we have been provided authorization
 			reqToken, err := GetRequestBearerToken(c)
 			if err == nil {
-				// If we are given an authorization token
-				// get the user email associated
 				userEmail, err = GetUser(reqToken)
 				if err != nil {
 					handleErr(c, err)
@@ -121,11 +121,8 @@ func SetupRouter() *gin.Engine {
 		})
 		api.GET("/document/:id/data", func(c *gin.Context) {
 			var userEmail *string
-			// Check if we have been provided authorization
 			reqToken, err := GetRequestBearerToken(c)
 			if err == nil {
-				// If we are given an authorization token
-				// get the user email associated
 				userEmail, err = GetUser(reqToken)
 				if err != nil {
 					handleErr(c, err)
@@ -158,11 +155,8 @@ func SetupRouter() *gin.Engine {
 		})
 		api.GET("/document/:id/children", func(c *gin.Context) {
 			var userEmail *string
-			// Check if we have been provided authorization
 			reqToken, err := GetRequestBearerToken(c)
 			if err == nil {
-				// If we are given an authorization token
-				// get the user email associated
 				userEmail, err = GetUser(reqToken)
 				if err != nil {
 					handleErr(c, err)
