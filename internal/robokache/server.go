@@ -321,6 +321,9 @@ func SetupRouter() *gin.Engine {
 				return
 			}
 
+			log.WithFields(
+				log.Fields{"doc" : fmt.Sprintf("%+v", doc)}).Debug("Updating document")
+
 			// Set the document owner from the user's Google Auth
 			doc.Owner = userEmail
 			// Set the document based on the URL param

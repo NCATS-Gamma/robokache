@@ -26,9 +26,9 @@ func PostDocument(doc Document) (int, error) {
 	}
 	// Add question to DB
 	result, err := db.Exec(`
-		INSERT INTO document(owner, parent, visibility) VALUES
-		(?, ?, ?);
-	`, doc.Owner, doc.Parent, doc.Visibility)
+		INSERT INTO document(owner, parent, visibility, metadata) VALUES
+    (?, ?, ?, ?);
+	`, doc.Owner, doc.Parent, doc.Visibility, doc.Metadata)
 
 	if err != nil {
 		return -1, err

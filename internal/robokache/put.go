@@ -53,9 +53,13 @@ func EditDocument(doc Document) error {
 	// Update document
 	result, err := db.Exec(`
 		UPDATE document SET
-		visibility=?, parent=?
+		visibility=?, parent=?, metadata=?
 		WHERE id=?;
-	`, doc.Visibility, doc.Parent, doc.ID)
+	`, doc.Visibility, doc.Parent, doc.Metadata, doc.ID)
+
+	if err != nil {
+		return err
+	}
 
 	_, err = result.RowsAffected()
 	if err != nil {
