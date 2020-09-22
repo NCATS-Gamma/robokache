@@ -1,6 +1,7 @@
 package robokache
 
 import (
+	"time"
 	"encoding/json"
 	"database/sql/driver"
 	"github.com/jmoiron/sqlx"
@@ -42,6 +43,8 @@ type Document struct {
 	Visibility *visibility     `db:"visibility" json:"visibility"`
 	// Key value store that contains other data about the object
 	Metadata Metadata `db:"metadata" json:"metadata"`
+	// Creation time field, automatically set
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
 }
 
 type visibility int
@@ -187,7 +190,8 @@ func init() {
 			parent INTEGER,
 			owner TEXT,
 			visibility INTEGER,
-			metadata TEXT
+			metadata TEXT,
+			created_at TIMESTAMP  NOT NULL  DEFAULT current_timestamp
 		);`
 
 	db.MustExec(sqlStmt)
