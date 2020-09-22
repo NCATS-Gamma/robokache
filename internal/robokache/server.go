@@ -5,7 +5,17 @@ import (
 	"strings"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 )
+
+// Initialize logging
+func init() {
+	if gin.Mode() == gin.DebugMode {
+		log.SetLevel(log.DebugLevel)
+	} else {
+		log.SetLevel(log.WarnLevel)
+	}
+}
 
 func handleErr(c *gin.Context, err error) {
 	errorMsg := err.Error()
@@ -310,6 +320,9 @@ func SetupRouter() *gin.Engine {
 				handleErr(c, err)
 				return
 			}
+
+			log.WithFields(
+				log.Fields{"doc" : fmt.Sprintf("%+v", doc)}).Debug("Updating document")
 
 			// Set the document owner from the user's Google Auth
 			doc.Owner = userEmail

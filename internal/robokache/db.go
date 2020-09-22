@@ -1,11 +1,30 @@
 package robokache
 
 import (
+	"time"
+	"encoding/json"
+	"database/sql/driver"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3" // makes database/sql point to SQLite
 	"os"
 	"fmt"
 )
+
+// Metadata is enforced to be a map of strings to any values
+type Metadata map[string]interface{}
+
+// Implement the sql.Scanner interface to convert metadata to bytes
+// for storage in the database
+func (m Metadata) Value() (driver.Value, error) {
+	return json.Marshal(m)
+}
+func (m Metadata) Scan(value interface{}) error {
+	b, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("type assertion to []byte failed")
+	}
+	return json.Unmarshal(b, &m)
+}
 
 type Document struct {
     // Omit in JSON to prevent exposing primary key
@@ -22,6 +41,10 @@ type Document struct {
 	// Replaces owner in JSON
 	Owned      bool         `db:"-"     json:"owned"`
 	Visibility *visibility     `db:"visibility" json:"visibility"`
+	// Key value store that contains other data about the object
+	Metadata Metadata `db:"metadata" json:"metadata"`
+	// Creation time field, automatically set
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
 }
 
 type visibility int
@@ -125,8 +148,8 @@ func loadSampleData() error {
 
 	for _, doc := range sampleDocuments {
 		_, err := db.Exec(
-			`INSERT INTO document(id, parent, owner, visibility) VALUES
-			(?, ?, ?, ?)`, doc.ID, doc.Parent, doc.Owner, doc.Visibility)
+			`INSERT INTO document(id, parent, owner, visibility, metadata) VALUES
+			(?, ?, ?, ?, ?)`, doc.ID, doc.Parent, doc.Owner, doc.Visibility, doc.Metadata)
 		if err != nil {
 			return err
 		}
@@ -166,7 +189,9 @@ func init() {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			parent INTEGER,
 			owner TEXT,
-			visibility INTEGER
+			visibility INTEGER,
+			metadata TEXT,
+			created_at TIMESTAMP  NOT NULL  DEFAULT current_timestamp
 		);`
 
 	db.MustExec(sqlStmt)

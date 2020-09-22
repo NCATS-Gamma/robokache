@@ -105,6 +105,16 @@ func init() {
 	signedString, _ = token.SignedString(signKey)
 }
 
+// Ensure that we don't have failing setup functions
+func TestSetupFunctions(t *testing.T) {
+  err := clearDB()
+  assert.Nil(t, err)
+
+  err = loadSampleData()
+  assert.Nil(t, err)
+
+}
+
 func TestGetDocumentsNotLoggedIn(t *testing.T) {
 	clearDB(); loadSampleData()
 
@@ -365,6 +375,32 @@ func TestPostDocument(t *testing.T) {
 	createdID, err := hashToID(w.Body.String())
 	assert.Nil(t, err)
 	assert.Greater(t, createdID, 8)
+}
+
+func TestPostDocumentWithMetadata(t *testing.T) {
+	clearDB(); loadSampleData()
+
+  metadata := map[string]interface{}{
+    "hasAnswers" : true,
+    "questionName" : "My cool question",
+  }
+
+  metadataSerialized, err := json.Marshal(metadata)
+  assert.Nil(t, err)
+
+  requestBody := fmt.Sprintf(`{ "metadata" : %s }`, metadataSerialized)
+	w := performRequest(router, "POST", "/api/document", &signedString, &requestBody)
+	assert.Equal(t, http.StatusCreated, w.Code)
+
+	// Check that the metadata exists on object
+	createdID := w.Body.String()
+	w = performRequest(router, "GET", "/api/document/" + createdID, &signedString, nil)
+	assert.Nil(t, err)
+	var response map[string]interface{}
+	err = json.Unmarshal([]byte(w.Body.String()), &response)
+  assert.NotNil(t, response["metadata"])
+  assert.Equal(t, metadata["hasAnswers"],
+                  response["metadata"].(map[string]interface{})["hasAnswers"])
 }
 
 func TestPostDocumentWithParent(t *testing.T) {
