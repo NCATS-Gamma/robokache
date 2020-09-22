@@ -5,7 +5,17 @@ import (
 	"strings"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 )
+
+// Initialize logging
+func init() {
+	if gin.Mode() == gin.DebugMode {
+		log.SetLevel(log.DebugLevel)
+	} else {
+		log.SetLevel(log.WarnLevel)
+	}
+}
 
 func handleErr(c *gin.Context, err error) {
 	errorMsg := err.Error()
