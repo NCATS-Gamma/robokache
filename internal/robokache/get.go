@@ -12,8 +12,7 @@ import (
 
 // GetDocument gets all documents where owner = user OR visibility >= public.
 func GetDocuments(userEmail *string, hasParent *bool) ([]Document, error) {
-	// Slice of rows
-	var docs []Document
+	docs := make([]Document, 0)
 	var err error
 
 	queryString := `
@@ -59,7 +58,7 @@ func GetDocument(userEmail *string, id int) (Document, error) {
 
 // Get all the documents with given id as the parent
 func GetDocumentChildren(userEmail *string, id int) ([]Document, error) {
-	var docs []Document
+	docs := make([]Document, 0)
 
 	err := db.Select(&docs, `
 		SELECT * FROM document
