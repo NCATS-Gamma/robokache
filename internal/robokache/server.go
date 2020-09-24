@@ -5,6 +5,7 @@ import (
 	"strings"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/gin-contrib/cors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -50,6 +51,14 @@ type GetDocumentQuery struct {
 // SetupRouter sets up the router
 func SetupRouter() *gin.Engine {
 	r := gin.Default()
+
+	corsConfig := cors.DefaultConfig()
+	corsConfig.AllowOrigins = []string{"http://lvh.me", "http://lvh.me:8080", "https://robokop.renci.org"}
+	corsConfig.AllowCredentials = true
+	corsConfig.AllowHeaders =  []string{"Authorization", "Content-Type", "Accept"}
+
+	r.Use(cors.New(corsConfig))
+
 	api := r.Group("/api")
 
 	// GET endpoints don't necessarily require auth
