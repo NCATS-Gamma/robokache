@@ -1,8 +1,9 @@
 openapi: 3.0.3
+
 info:
   title: Robokache
   description: Large object document store for ROBOKOP
-  version: 3.2.0
+  version: 4.0.0
   contact:
     email: patrick@covar.com
   license:
@@ -44,7 +45,13 @@ paths:
               $ref: '#/components/schemas/Document'
       responses:
         '201':
-          $ref: '#/components/responses/IdOfCreated'
+          description: ID of created document
+          content:
+            application/json:
+              schema:
+                allOf:
+                 - $ref: '#/components/schemas/OkResponse'
+                 - $ref: '#/components/schemas/IdOfCreated'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
   /api/document/{id}:
@@ -64,7 +71,7 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '404':
-          $ref: '#/components/responses/NoSuchDocument'
+          $ref: '#/components/responses/NoSuchDocumentError'
     put:
       summary: Update fields of document
       parameters:
@@ -76,11 +83,15 @@ paths:
               $ref: '#/components/schemas/Document'
       responses:
         '200':
-          description: Successfully updated
+          description: Document successfully updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '404':
-          $ref: '#/components/responses/NoSuchDocument'
+          $ref: '#/components/responses/NoSuchDocumentError'
     delete:
       summary: Delete document by ID
       parameters:
@@ -88,10 +99,14 @@ paths:
       responses:
         '200':
           description: Deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '404':
-          $ref: '#/components/responses/NoSuchDocument'
+          $ref: '#/components/responses/NoSuchDocumentError'
   /api/document/{id}/children:
     get:
       summary: Get documents that have this document as a parent
@@ -110,6 +125,8 @@ paths:
                    - $ref: '#/components/schemas/DocumentResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NoSuchDocumentError'
     post:
       summary: Create a new child document and set data field
       description: Shorthand to create a child document and set the data field using only one route. This creates the document with default values for fields.
@@ -118,12 +135,19 @@ paths:
       requestBody:
         description: Data object
         content:
-          application/json:
+          application/octet-stream:
             schema:
               type: string
+              format: binary
       responses:
         '200':
-          $ref: '#/components/responses/IdOfCreated'
+          description: New document created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                 - $ref: '#/components/schemas/OkResponse'
+                 - $ref: '#/components/schemas/IdOfCreated'
   /api/document/{id}/data:
     get:
       summary: Get the data associated with this document
@@ -153,6 +177,10 @@ paths:
       responses:
         '200':
           description: Successfully Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
@@ -173,6 +201,27 @@ components:
         created_at:
           type: string
           format: date-time
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: error
+        message:
+          type: string
+          example: Detailed error message
+    OkResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+    IdOfCreated:
+      type: object
+      properties:
+        id:
+          type: string
+          example: D8JnjJB5
   securitySchemes:
     google:
       type: http
@@ -181,13 +230,16 @@ components:
   responses:
     UnauthorizedError:
       description: Access token is missing or invalid
-    NoSuchDocument:
-      description: Document ID not found
-    IdOfCreated:
-      description: ID of created document
       content:
-        application/text:
-          example: 1234
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NoSuchDocumentError:
+      description: Document not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
   parameters:
     PathId:
       name: id

@@ -339,7 +339,11 @@ func TestPostChildWithData(t *testing.T) {
 			&signedString, &requestBody)
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	newDocumentIDHash := w.Body.String()
+	var response map[string]interface{}
+  err := json.Unmarshal([]byte(w.Body.String()), &response)
+  assert.Nil(t, err)
+
+	newDocumentIDHash := response["id"].(string)
 	log.Println(newDocumentIDHash)
 
 	newDocumentID, err := hashToID(newDocumentIDHash)
@@ -350,7 +354,6 @@ func TestPostChildWithData(t *testing.T) {
 	w = performRequest(router, "GET",
 			fmt.Sprintf(`/api/document/%s`, newDocumentIDHash),
 			&signedString, &requestBody)
-	var response map[string]interface{}
 	err = json.Unmarshal([]byte(w.Body.String()), &response)
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Nil(t, err)
@@ -371,8 +374,12 @@ func TestPostDocument(t *testing.T) {
 	w := performRequest(router, "POST", "/api/document", &signedString, &requestBody)
 	assert.Equal(t, http.StatusCreated, w.Code)
 
+	var response map[string]interface{}
+  err := json.Unmarshal([]byte(w.Body.String()), &response)
+  assert.Nil(t, err)
+
 	// Check that the ID was returned
-	createdID, err := hashToID(w.Body.String())
+	createdID, err := hashToID(response["id"].(string))
 	assert.Nil(t, err)
 	assert.Greater(t, createdID, 8)
 }
@@ -392,13 +399,18 @@ func TestPostDocumentWithMetadata(t *testing.T) {
 	w := performRequest(router, "POST", "/api/document", &signedString, &requestBody)
 	assert.Equal(t, http.StatusCreated, w.Code)
 
+	var response map[string]interface{}
+  err = json.Unmarshal([]byte(w.Body.String()), &response)
+  assert.Nil(t, err)
+
 	// Check that the metadata exists on object
-	createdID := w.Body.String()
+	createdID := response["id"].(string)
 	w = performRequest(router, "GET", "/api/document/" + createdID, &signedString, nil)
 	assert.Nil(t, err)
-	var response map[string]interface{}
+
 	err = json.Unmarshal([]byte(w.Body.String()), &response)
   assert.NotNil(t, response["metadata"])
+  t.Log(response)
   assert.Equal(t, metadata["hasAnswers"],
                   response["metadata"].(map[string]interface{})["hasAnswers"])
 }
@@ -413,8 +425,12 @@ func TestPostDocumentWithParent(t *testing.T) {
 	w := performRequest(router, "POST", "/api/document", &signedString, &requestBody)
 	assert.Equal(t, http.StatusCreated, w.Code)
 
+  var response map[string]interface{}
+  err := json.Unmarshal([]byte(w.Body.String()), &response)
+  assert.Nil(t, err)
+
 	// Check that the ID was returned
-	createdID, err := hashToID(w.Body.String())
+	createdID, err := hashToID(response["id"].(string))
 	assert.Nil(t, err)
 	assert.Greater(t, createdID, 8)
 }
