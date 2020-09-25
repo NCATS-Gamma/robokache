@@ -99,12 +99,14 @@ func GetUser(reqToken string) (*string, error) {
 func AddUserToContext(c *gin.Context) {
 	reqToken, err := GetRequestBearerToken(c)
 	if err != nil {
-		c.AbortWithError(http.StatusUnauthorized, err)
+    handleErr(c, fmt.Errorf("Unauthorized: %v", err))
+    c.Abort()
 		return
 	}
 	userEmail, err := GetUser(reqToken)
 	if err != nil {
-		c.AbortWithError(http.StatusUnauthorized, err)
+    handleErr(c, fmt.Errorf("Unauthorized: %v", err))
+    c.Abort()
 		return
 	}
 
