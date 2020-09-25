@@ -1,8 +1,8 @@
-openapi: 3.0.3
+openapi: 3.0.4
 info:
   title: Robokache
   description: Large object document store for ROBOKOP
-  version: 3.2.0
+  version: 3.1.0
   contact:
     email: patrick@covar.com
   license:
@@ -37,8 +37,7 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
     post:
       summary: Create a document
-      requestBody:
-        content:
+      requestBody: content:
           application/json:
             schema:
               $ref: '#/components/schemas/Document'
@@ -106,8 +105,13 @@ paths:
                 type: array
                 items:
                   allOf:
-                   - $ref: '#/components/schemas/Document'
-                   - $ref: '#/components/schemas/DocumentResponse'
+                    - $ref: '#/components/schemas/Document'
+                    - properties:
+                        id:
+                          type: string
+                allOf:
+                 - $ref: '#/components/schemas/Document'
+                 - $ref: '#/components/schemas/DocumentResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
     post:
@@ -166,7 +170,7 @@ components:
           type: integer
         metadata:
           type: object
-    DocumentResponse:
+    DocumentGetFields:
       properties:
         id:
           type: string
