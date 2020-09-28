@@ -21,7 +21,6 @@ func init() {
 func handleErr(c *gin.Context, err error) {
 	errorMsg := err.Error()
   errorResponse := map[string]string{
-    "status"  : "error",
     "message" : errorMsg,
   }
 	if strings.HasPrefix(errorMsg, "Bad Request") {
@@ -40,11 +39,6 @@ func handleErr(c *gin.Context, err error) {
 	}
 }
 
-func makeOkResponse() map[string]string {
-  return map[string]string{
-    "status" : "ok",
-  }
-}
 
 // AddGUI adds the GUI endpoints
 func AddGUI(r *gin.Engine) {
@@ -280,7 +274,7 @@ func SetupRouter() *gin.Engine {
 			}
 
 			// Return
-      response := makeOkResponse()
+      response := make(map[string]string)
       response["id"] = newDocIDHash
       c.JSON(http.StatusOK, response)
 		})
@@ -320,7 +314,7 @@ func SetupRouter() *gin.Engine {
 			}
 
 			// Return
-      response := makeOkResponse()
+      response := make(map[string]string)
       response["id"] = hashedID
       c.JSON(http.StatusCreated, response)
 		})
@@ -364,7 +358,7 @@ func SetupRouter() *gin.Engine {
 				return
 			}
 
-      response := makeOkResponse()
+      response := make(map[string]string)
       c.JSON(http.StatusOK, response)
 		})
 		authorized.PUT("/document/:id/data", func(c *gin.Context) {
@@ -393,7 +387,7 @@ func SetupRouter() *gin.Engine {
 				return
 			}
 
-      response := makeOkResponse()
+      response := make(map[string]string)
       c.JSON(http.StatusOK, response)
 		})
 		authorized.DELETE("/document/:id", func(c *gin.Context) {
@@ -417,7 +411,7 @@ func SetupRouter() *gin.Engine {
 				return
 			}
 
-      response := makeOkResponse()
+      response := make(map[string]string)
       c.JSON(http.StatusOK, response)
 		})
 	}
