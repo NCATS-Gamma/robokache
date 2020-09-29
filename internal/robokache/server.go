@@ -20,16 +20,25 @@ func init() {
 
 func handleErr(c *gin.Context, err error) {
 	errorMsg := err.Error()
+  errorResponse := map[string]string{
+    "message" : errorMsg,
+  }
 	if strings.HasPrefix(errorMsg, "Bad Request") {
-		c.JSON(400, errorMsg)
+		c.JSON(400, errorResponse)
 	} else if strings.HasPrefix(errorMsg, "Unauthorized") {
-		c.JSON(401, errorMsg)
+		c.JSON(401, errorResponse)
 	} else if strings.HasPrefix(errorMsg, "Not Found") {
-		c.JSON(404, errorMsg)
+		c.JSON(404, errorResponse)
 	} else {
-		c.JSON(500, errorMsg)
+    log.WithFields(log.Fields{"error" : err}).
+          WithContext(c).
+          Error("Internal Server Error")
+    // Rewrite error message so that we don't expose it to the user
+    errorResponse["message"] = "Internal Server Error"
+		c.JSON(500, errorResponse)
 	}
 }
+
 
 // AddGUI adds the GUI endpoints
 func AddGUI(r *gin.Engine) {
@@ -265,7 +274,9 @@ func SetupRouter() *gin.Engine {
 			}
 
 			// Return
-			c.String(http.StatusOK, newDocIDHash)
+      response := make(map[string]string)
+      response["id"] = newDocIDHash
+      c.JSON(http.StatusOK, response)
 		})
 		authorized.POST("/document", func(c *gin.Context) {
 			// Get user
@@ -302,8 +313,10 @@ func SetupRouter() *gin.Engine {
 				return
 			}
 
-			// Return hashed ID as application/text
-			c.String(http.StatusCreated, hashedID)
+			// Return
+      response := make(map[string]string)
+      response["id"] = hashedID
+      c.JSON(http.StatusCreated, response)
 		})
 		authorized.PUT("/document/:id", func(c *gin.Context) {
 			// Get user
@@ -345,8 +358,8 @@ func SetupRouter() *gin.Engine {
 				return
 			}
 
-			// Return hashed ID as application/text
-			c.String(http.StatusOK, "ok")
+      response := make(map[string]string)
+      c.JSON(http.StatusOK, response)
 		})
 		authorized.PUT("/document/:id/data", func(c *gin.Context) {
 			// Get user
@@ -374,8 +387,8 @@ func SetupRouter() *gin.Engine {
 				return
 			}
 
-			// Return
-			c.String(http.StatusOK, "ok")
+      response := make(map[string]string)
+      c.JSON(http.StatusOK, response)
 		})
 		authorized.DELETE("/document/:id", func(c *gin.Context) {
 			// Get user
@@ -398,7 +411,8 @@ func SetupRouter() *gin.Engine {
 				return
 			}
 
-			c.String(http.StatusOK, "ok")
+      response := make(map[string]string)
+      c.JSON(http.StatusOK, response)
 		})
 	}
 	return r
