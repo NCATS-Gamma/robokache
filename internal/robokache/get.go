@@ -98,3 +98,28 @@ func GetData(id int, w io.Writer) error {
 
 	return nil
 }
+
+// Get document that we intend to edit
+// Checks that the document is owned by the current user
+func GetDocumentForEditing(userEmail string, id int) (Document, error) {
+	var doc Document
+	err := db.Get(&doc,
+		`SELECT * FROM document WHERE id=?`, id)
+	if err != nil && err != sql.ErrNoRows {
+		return doc, err
+	}
+
+	// Document does not exist or is not public
+	if err == sql.ErrNoRows ||
+	   (*doc.Visibility < shareable && doc.Owner != userEmail) {
+		return doc, fmt.Errorf("Not Found: Check that the document exists and that you have permission to view it.")
+	}
+
+	// Document exists and is visible to user, but is not public
+	if doc.Owner != userEmail {
+		return doc, fmt.Errorf("Forbidden: You do not have permission to edit this document.")
+	}
+
+	return doc, nil
+
+}

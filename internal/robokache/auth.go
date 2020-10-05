@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
+	"regexp"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
@@ -33,15 +33,22 @@ func issuedByGoogle(claims *jwt.MapClaims) bool {
 }
 
 // Gets bearer (JWT) token from header
+// Only fails if the header is present and invalid
 func GetRequestBearerToken(c *gin.Context) (string, error) {
+	matchBearer := regexp.MustCompile("Bearer\\s([a-zA-Z0-9-_.]+)$")
+
 	header := c.Request.Header
-	reqToken := header.Get("Authorization")
-	splitToken := strings.Split(reqToken, "Bearer ")
-	if len(splitToken) != 2 {
-		return "", fmt.Errorf("Invalid Authorization header")
+	authorizationHeader := header.Get("Authorization")
+	if authorizationHeader == "" {
+		return "", nil
 	}
-	reqToken = splitToken[1]
-	return reqToken, nil
+
+	bearer := matchBearer.FindStringSubmatch(authorizationHeader)
+	if bearer == nil {
+		return "", fmt.Errorf("Unauthorized: Invalid Authorization header formatting")
+	}
+
+	return bearer[1], nil
 }
 
 // Verifies authorization and sets the userEmail context
@@ -95,22 +102,25 @@ func GetUser(reqToken string) (*string, error) {
 
 // Runs GetUser and GetRequestBearerToken and puts the results
 // in the Gin context.
-// Aborts with Unauthorized if there are any issues.
 func AddUserToContext(c *gin.Context) {
 	reqToken, err := GetRequestBearerToken(c)
 	if err != nil {
-    handleErr(c, fmt.Errorf("Unauthorized: %v", err))
-    c.Abort()
+		handleErr(c, fmt.Errorf("Unauthorized: %v", err))
+		c.Abort()
+		return
+	}
+	if reqToken == "" {
+		c.Next()
 		return
 	}
 	userEmail, err := GetUser(reqToken)
 	if err != nil {
-    handleErr(c, fmt.Errorf("Unauthorized: %v", err))
-    c.Abort()
+		handleErr(c, fmt.Errorf("Unauthorized: %v", err))
+		c.Abort()
 		return
 	}
 
 	// Set user email on context and continue middleware chain
-	c.Set("userEmail", *userEmail)
+	c.Set("userEmail", userEmail)
 	c.Next()
 }

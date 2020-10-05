@@ -20,21 +20,23 @@ func init() {
 
 func handleErr(c *gin.Context, err error) {
 	errorMsg := err.Error()
-  errorResponse := map[string]string{
-    "message" : errorMsg,
-  }
+	errorResponse := map[string]string{
+		"message" : errorMsg,
+	}
 	if strings.HasPrefix(errorMsg, "Bad Request") {
 		c.JSON(400, errorResponse)
 	} else if strings.HasPrefix(errorMsg, "Unauthorized") {
 		c.JSON(401, errorResponse)
+	} else if strings.HasPrefix(errorMsg, "Forbidden") {
+		c.JSON(403, errorResponse)
 	} else if strings.HasPrefix(errorMsg, "Not Found") {
 		c.JSON(404, errorResponse)
 	} else {
-    log.WithFields(log.Fields{"error" : err}).
-          WithContext(c).
-          Error("Internal Server Error")
-    // Rewrite error message so that we don't expose it to the user
-    errorResponse["message"] = "Internal Server Error"
+		log.WithFields(log.Fields{"error" : err}).
+		WithContext(c).
+		Error("Internal Server Error")
+		// Rewrite error message so that we don't expose it to the user
+		errorResponse["message"] = "Internal Server Error"
 		c.JSON(500, errorResponse)
 	}
 }
@@ -57,6 +59,15 @@ type GetDocumentQuery struct {
 	HasParent *bool `form:"has_parent"`
 }
 
+func GetUserEmail(c *gin.Context) (*string) {
+	val, ok := c.Get("userEmail")
+	if ok {
+		email, _ := val.(*string)
+		return email
+	}
+	return nil
+}
+
 // SetupRouter sets up the router
 func SetupRouter() *gin.Engine {
 	r := gin.Default()
@@ -67,31 +78,23 @@ func SetupRouter() *gin.Engine {
 	corsConfig.AllowHeaders =  []string{"Authorization", "Content-Type", "Accept"}
 
 	r.Use(cors.New(corsConfig))
+	r.Use(AddUserToContext)
 
 	api := r.Group("/api")
 
 	// GET endpoints don't necessarily require auth
 	{
 		api.GET("/document", func(c *gin.Context) {
-			var userEmail *string
-			// Check if we have been provided authorization
-			reqToken, err := GetRequestBearerToken(c)
-			// If we are given an authorization token
-			// get the user email associated
-			if err == nil {
-				userEmail, err = GetUser(reqToken)
-				// If the token is invalid, always abort
-				if err != nil {
-					handleErr(c, err)
-					return
-				}
-			} // userEmail will be nil here if the user is not logged in
+			userEmail := GetUserEmail(c)
+			log.WithFields(log.Fields{"email" : userEmail}).Debug("User email")
+			// userEmail will be nil here if the user is not logged in
 
 			// Parse query parameters into queryParams struct
 			var queryParams GetDocumentQuery
-			err = c.ShouldBindQuery(&queryParams)
+			err := c.ShouldBindQuery(&queryParams)
 			if err != nil {
 				handleErr(c, fmt.Errorf("Bad Request: Error parsing query parameters"))
+				return
 			}
 
 			// Get documents from database
@@ -115,15 +118,7 @@ func SetupRouter() *gin.Engine {
 			c.JSON(http.StatusOK, documents)
 		})
 		api.GET("/document/:id", func(c *gin.Context) {
-			var userEmail *string
-			reqToken, err := GetRequestBearerToken(c)
-			if err == nil {
-				userEmail, err = GetUser(reqToken)
-				if err != nil {
-					handleErr(c, err)
-					return
-				}
-			}
+			userEmail := GetUserEmail(c)
 
 			// Get document id
 			id, err := hashToID(c.Param("id"))
@@ -148,15 +143,7 @@ func SetupRouter() *gin.Engine {
 			c.JSON(http.StatusOK, document)
 		})
 		api.GET("/document/:id/data", func(c *gin.Context) {
-			var userEmail *string
-			reqToken, err := GetRequestBearerToken(c)
-			if err == nil {
-				userEmail, err = GetUser(reqToken)
-				if err != nil {
-					handleErr(c, err)
-					return
-				}
-			}
+			userEmail := GetUserEmail(c)
 
 			// Get document id
 			id, err := hashToID(c.Param("id"))
@@ -182,15 +169,7 @@ func SetupRouter() *gin.Engine {
 			}
 		})
 		api.GET("/document/:id/children", func(c *gin.Context) {
-			var userEmail *string
-			reqToken, err := GetRequestBearerToken(c)
-			if err == nil {
-				userEmail, err = GetUser(reqToken)
-				if err != nil {
-					handleErr(c, err)
-					return
-				}
-			}
+			userEmail := GetUserEmail(c)
 
 			// Get document id
 			id, err := hashToID(c.Param("id"))
@@ -227,100 +206,166 @@ func SetupRouter() *gin.Engine {
 		})
 	}
 
-	// Serve secured endpoints for all routes that can modify data
-	authorized := api.Group("")
-	authorized.Use(AddUserToContext)
-	{
-		authorized.POST("/document/:id/children", func(c *gin.Context) {
-			// Get user
-			userEmail := c.GetString("userEmail")
+	api.POST("/document/:id/children", func(c *gin.Context) {
+		userEmail := GetUserEmail(c)
+		if userEmail == nil {
+			handleErr(c,
+			fmt.Errorf("Unauthorized: You must be logged in to add a document."))
+			return
+		}
 
-			// Get document id
-			parentID, err := hashToID(c.Param("id"))
-			if err != nil {
-				handleErr(c, err)
-				return
-			}
+		// Get document id
+		parentID, err := hashToID(c.Param("id"))
+		if err != nil {
+			handleErr(c, err)
+			return
+		}
 
-			// Get the parent so we can set the default visibility
-			// to the visibility of the parent
-			parent, err := GetDocument(&userEmail, parentID)
-			if err != nil {
-				handleErr(c, err)
-			}
-			newDoc := Document{
-				Parent: &parent.ID,
-				Visibility: parent.Visibility,
-				Owner: userEmail,
-			}
+		// Get the parent so we can set the default visibility
+		// to the visibility of the parent
+		parent, err := GetDocument(userEmail, parentID)
+		if err != nil {
+			handleErr(c, err)
+			return
+		}
+		newDoc := Document{
+			Parent: &parent.ID,
+			Visibility: parent.Visibility,
+			Owner: *userEmail,
+		}
 
-			// Add the document to the database
-			newDocID, err := PostDocument(newDoc)
-			if err != nil {
-				handleErr(c, err)
-			}
+		// Add the document to the database
+		newDocID, err := PostDocument(newDoc)
+		if err != nil {
+			handleErr(c, err)
+			return
+		}
 
-			// Write data to disk
-			err = SetData(newDocID, c.Request.Body)
-			if err != nil {
-				handleErr(c, err)
-				return
-			}
+		// Write data to disk
+		err = SetData(newDocID, c.Request.Body)
+		if err != nil {
+			handleErr(c, err)
+			return
+		}
 
-			// Convert ID to hash
-			newDocIDHash, err := idToHash(newDocID)
-			if err != nil {
-				handleErr(c, err)
-			}
+		// Convert ID to hash
+		newDocIDHash, err := idToHash(newDocID)
+		if err != nil {
+			handleErr(c, err)
+			return
+		}
 
-			// Return
-      response := make(map[string]string)
-      response["id"] = newDocIDHash
-      c.JSON(http.StatusOK, response)
+		// Return
+		response := make(map[string]string)
+		response["id"] = newDocIDHash
+		c.JSON(http.StatusOK, response)
+	})
+
+	api.POST("/document", func(c *gin.Context) {
+		userEmail := GetUserEmail(c)
+		if userEmail == nil {
+			handleErr(c,
+			fmt.Errorf("Unauthorized: You must be logged in to add a document."))
+			return
+		}
+
+		// Parse the document from JSON
+		var doc Document
+		err := c.ShouldBindJSON(&doc)
+		if err != nil {
+			handleErr(c, err)
+			return
+		}
+		// Set the document owner from the user's Google Auth
+		doc.Owner = *userEmail
+
+		// Convert user given hashes to IDs
+		err = doc.addID()
+		if err != nil {
+			handleErr(c, err)
+			return
+		}
+
+		// Add document to DB
+		newID, err := PostDocument(doc)
+		if err != nil {
+			handleErr(c, err)
+			return
+		}
+
+		// Convert new ID to hash
+		hashedID, err := idToHash(newID)
+		if err != nil {
+			handleErr(c, err)
+			return
+		}
+
+		// Return
+		response := make(map[string]string)
+		response["id"] = hashedID
+		c.JSON(http.StatusCreated, response)
+	})
+	api.PUT("/document/:id", func(c *gin.Context) {
+		userEmail := GetUserEmail(c)
+		if userEmail == nil {
+			handleErr(c,
+			fmt.Errorf("Unauthorized: You must be logged in to edit a document."))
+			return
+		}
+
+		// Get document id
+		id, err := hashToID(c.Param("id"))
+		if err != nil {
+			handleErr(c, err)
+			return
+		}
+
+		// Parse the document from JSON
+		var doc Document
+		err = c.ShouldBindJSON(&doc)
+		if err != nil {
+			handleErr(c, err)
+			return
+		}
+		// Convert user-given parent hash and ID hash to IDs
+		err = doc.addID()
+		if err != nil {
+			handleErr(c, err)
+			return
+		}
+
+		// Check we have permission to update this document
+		existingDoc, err := GetDocumentForEditing(*userEmail, id)
+		if err != nil {
+			handleErr(c, err)
+			return
+		}
+
+		// Set the document owner from the user's Google Auth
+		doc.Owner = *userEmail
+		// Set the document ID based on the URL param
+		doc.ID = id
+
+		// Add document to DB
+		err = EditDocument(doc, existingDoc)
+		if err != nil {
+			handleErr(c, err)
+			return
+		}
+
+		log.WithFields(
+			log.Fields{"doc" : fmt.Sprintf("%+v", doc)}).Debug("Updating document")
+
+			response := make(map[string]string)
+			c.JSON(http.StatusOK, response)
 		})
-		authorized.POST("/document", func(c *gin.Context) {
-			// Get user
-			userEmail := c.GetString("userEmail")
-
-			// Parse the document from JSON
-			var doc Document
-			err := c.ShouldBindJSON(&doc)
-			if err != nil {
-				handleErr(c, err)
+		api.PUT("/document/:id/data", func(c *gin.Context) {
+			userEmail := GetUserEmail(c)
+			if userEmail == nil {
+				handleErr(c,
+				fmt.Errorf("Unauthorized: You must be logged in to edit a document."))
 				return
 			}
-			// Set the document owner from the user's Google Auth
-			doc.Owner = userEmail
-
-			// Convert user given hashes to IDs
-			err = doc.addID()
-			if err != nil {
-				handleErr(c, err)
-				return
-			}
-
-			// Add document to DB
-			newID, err := PostDocument(doc)
-			if err != nil {
-				handleErr(c, err)
-				return
-			}
-
-			// Convert new ID to hash
-			hashedID, err := idToHash(newID)
-			if err != nil {
-				handleErr(c, err)
-				return
-			}
-
-			// Return
-      response := make(map[string]string)
-      response["id"] = hashedID
-      c.JSON(http.StatusCreated, response)
-		})
-		authorized.PUT("/document/:id", func(c *gin.Context) {
-			// Get user
-			userEmail := c.GetString("userEmail")
 
 			// Get document id
 			id, err := hashToID(c.Param("id"))
@@ -329,52 +374,8 @@ func SetupRouter() *gin.Engine {
 				return
 			}
 
-			// Parse the document from JSON
-			var doc Document
-			err = c.ShouldBindJSON(&doc)
-			if err != nil {
-				handleErr(c, err)
-				return
-			}
-			// Convert user-given parent hash and ID hash to IDs
-			err = doc.addID()
-			if err != nil {
-				handleErr(c, err)
-				return
-			}
-
-			log.WithFields(
-				log.Fields{"doc" : fmt.Sprintf("%+v", doc)}).Debug("Updating document")
-
-			// Set the document owner from the user's Google Auth
-			doc.Owner = userEmail
-			// Set the document based on the URL param
-			doc.ID = id
-
-			// Add document to DB
-			err = EditDocument(doc)
-			if err != nil {
-				handleErr(c, err)
-				return
-			}
-
-      response := make(map[string]string)
-      c.JSON(http.StatusOK, response)
-		})
-		authorized.PUT("/document/:id/data", func(c *gin.Context) {
-			// Get user
-			userEmail := c.GetString("userEmail")
-
-			// Get document id
-			id, err := hashToID(c.Param("id"))
-			if err != nil {
-				handleErr(c, err)
-				return
-			}
-
-			// Get document from database to ensure we have permission
-			// to access this endpoint
-			_, err = GetDocument(&userEmail, id)
+			// Check we have permission to update this document
+			_, err = GetDocumentForEditing(*userEmail, id)
 			if err != nil {
 				handleErr(c, err)
 				return
@@ -387,12 +388,16 @@ func SetupRouter() *gin.Engine {
 				return
 			}
 
-      response := make(map[string]string)
-      c.JSON(http.StatusOK, response)
+			response := make(map[string]string)
+			c.JSON(http.StatusOK, response)
 		})
-		authorized.DELETE("/document/:id", func(c *gin.Context) {
-			// Get user
-			userEmail := c.GetString("userEmail")
+		api.DELETE("/document/:id", func(c *gin.Context) {
+			userEmail := GetUserEmail(c)
+			if userEmail == nil {
+				handleErr(c,
+				fmt.Errorf("Unauthorized: You must be logged in to delete a document."))
+				return
+			}
 
 			// Get document id
 			id, err := hashToID(c.Param("id"))
@@ -401,20 +406,22 @@ func SetupRouter() *gin.Engine {
 				return
 			}
 
-			// Build a document object that is used to query the database for
-			// the delete request
-			doc := Document{ID: id, Owner: userEmail}
-
-			err = DeleteDocument(doc)
+			// Check we have permission to delete this document
+			existingDoc, err := GetDocumentForEditing(*userEmail, id)
 			if err != nil {
 				handleErr(c, err)
 				return
 			}
 
-      response := make(map[string]string)
-      c.JSON(http.StatusOK, response)
+			err = DeleteDocument(existingDoc)
+			if err != nil {
+				handleErr(c, err)
+				return
+			}
+
+			response := make(map[string]string)
+			c.JSON(http.StatusOK, response)
 		})
-	}
-	return r
+		return r
 
 }

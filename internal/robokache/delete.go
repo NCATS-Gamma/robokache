@@ -7,9 +7,11 @@ import (
 // DeleteDocument deletes the document that matches the ID and Owner
 func DeleteDocument(doc Document) error {
 	result, err := db.Exec(`
-		DELETE FROM document WHERE
-		id=? AND owner=?;
-	`, doc.ID, doc.Owner)
+		DELETE FROM document WHERE id=?;
+	`, doc.ID)
+	if err != nil {
+		return err
+	}
 
 	rowsDeleted, err := result.RowsAffected()
 	if err != nil {
