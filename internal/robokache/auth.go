@@ -35,7 +35,7 @@ func issuedByGoogle(claims *jwt.MapClaims) bool {
 // Gets bearer (JWT) token from header
 // Only fails if the header is present and invalid
 func GetRequestBearerToken(c *gin.Context) (string, error) {
-	matchBearer := regexp.MustCompile("Bearer\\s([a-zA-Z0-9-_.]+)$")
+	matchBearer := regexp.MustCompile("^Bearer\\s([\\w.]+)$")
 
 	header := c.Request.Header
 	authorizationHeader := header.Get("Authorization")

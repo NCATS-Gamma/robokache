@@ -86,7 +86,6 @@ func SetupRouter() *gin.Engine {
 	{
 		api.GET("/document", func(c *gin.Context) {
 			userEmail := GetUserEmail(c)
-			log.WithFields(log.Fields{"email" : userEmail}).Debug("User email")
 			// userEmail will be nil here if the user is not logged in
 
 			// Parse query parameters into queryParams struct
