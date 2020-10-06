@@ -35,7 +35,7 @@ func issuedByGoogle(claims *jwt.MapClaims) bool {
 // Gets bearer (JWT) token from header
 // Only fails if the header is present and invalid
 func GetRequestBearerToken(c *gin.Context) (string, error) {
-	matchBearer := regexp.MustCompile("^Bearer\\s([\\w.]+)$")
+	matchBearer := regexp.MustCompile("^Bearer\\s([\\w.-]+)$")
 
 	header := c.Request.Header
 	authorizationHeader := header.Get("Authorization")
@@ -45,7 +45,7 @@ func GetRequestBearerToken(c *gin.Context) (string, error) {
 
 	bearer := matchBearer.FindStringSubmatch(authorizationHeader)
 	if bearer == nil {
-		return "", fmt.Errorf("Unauthorized: Invalid Authorization header formatting")
+		return "", fmt.Errorf("Invalid Authorization header formatting")
 	}
 
 	return bearer[1], nil
