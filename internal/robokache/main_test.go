@@ -115,6 +115,24 @@ func TestSetupFunctions(t *testing.T) {
 
 }
 
+func TestGetWithMissingBearer(t *testing.T) {
+	req, _ := http.NewRequest("GET", "/api/document", nil)
+	req.Header.Add("Authorization", "Bearer ")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestGetWithMalformedBearer(t *testing.T) {
+	req, _ := http.NewRequest("GET", "/api/document", nil)
+	req.Header.Add("Authorization", "Bearer hi")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
 func TestGetDocumentsNotLoggedIn(t *testing.T) {
 	clearDB(); loadSampleData()
 
@@ -466,6 +484,28 @@ func TestPutDocument(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
+func TestPutDocumentNotOwned(t *testing.T) {
+	clearDB(); loadSampleData()
+
+	requestBody := fmt.Sprintf(`{ "visibility" : %d }`, private)
+	idHash, _ := idToHash(4)
+	w := performRequest(router, "PUT",
+			fmt.Sprintf(`/api/document/%s`, idHash),
+			&signedString, &requestBody)
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func TestPutDocumentNotVisible(t *testing.T) {
+	clearDB(); loadSampleData()
+
+	requestBody := fmt.Sprintf(`{ "visibility" : %d }`, private)
+	idHash, _ := idToHash(6)
+	w := performRequest(router, "PUT",
+			fmt.Sprintf(`/api/document/%s`, idHash),
+			&signedString, &requestBody)
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
 func TestPutDocumentModifyParent(t *testing.T) {
 	clearDB(); loadSampleData()
 
@@ -524,15 +564,8 @@ func TestDeleteDocument(t *testing.T) {
 	w = performRequest(router, "DELETE",
 			fmt.Sprintf(`/api/document/%s`, id),
 			&signedString, nil)
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusForbidden, w.Code)
 }
-
-func TestBadToken(t *testing.T) {
-	badToken := "abc"
-	w := performRequest(router, "POST", "/api/document", &badToken, nil)
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
-}
-
 // Benchmark to test how the application handles large files
 func BenchmarkGetPutLargeData(b *testing.B) {
 	var testBytes []byte

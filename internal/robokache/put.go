@@ -9,26 +9,14 @@ import (
 )
 
 // EditDocument modifies the document with the given ID and updates the rest of the fields.
-func EditDocument(doc Document) error {
-
-	// Since this is a selective update request we may not be given fields
-	// So we have to pull it from the database
-	var existingDoc Document
-	err := db.Get(&existingDoc,
-		`SELECT * FROM document WHERE
-		 id=? AND owner=?`, doc.ID, doc.Owner)
-	if err == sql.ErrNoRows {
-		return fmt.Errorf("Bad Request: Check that the document exists and belongs to you.")
-	} else if err != nil {
-		return err
-	}
+func EditDocument(doc Document, existing Document) error {
 
 	// Fill in parent and visibility fields if not given
 	if doc.Parent == nil {
-		doc.Parent = existingDoc.Parent
+		doc.Parent = existing.Parent
 	}
 	if doc.Visibility == nil {
-		doc.Visibility = existingDoc.Visibility
+		doc.Visibility = existing.Visibility
 	}
 
 	// If the parent is still null the document has no parent

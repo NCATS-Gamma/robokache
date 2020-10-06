@@ -3,7 +3,7 @@ openapi: 3.0.3
 info:
   title: Robokache
   description: Large object document store for ROBOKOP
-  version: 4.0.0
+  version: 4.1.0
   contact:
     email: patrick@covar.com
   license:
@@ -36,6 +36,8 @@ paths:
                    - $ref: '#/components/schemas/DocumentResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
     post:
       summary: Create a document
       requestBody:
@@ -52,6 +54,8 @@ paths:
                 allOf:
                  - $ref: '#/components/schemas/OkResponse'
                  - $ref: '#/components/schemas/IdOfCreated'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
   /api/document/{id}:
@@ -71,7 +75,7 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '404':
-          $ref: '#/components/responses/NoSuchDocumentError'
+          $ref: '#/components/responses/NotFoundError'
     put:
       summary: Update fields of document
       parameters:
@@ -88,10 +92,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OkResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
         '404':
-          $ref: '#/components/responses/NoSuchDocumentError'
+          $ref: '#/components/responses/NotFoundError'
     delete:
       summary: Delete document by ID
       parameters:
@@ -103,10 +111,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OkResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
         '404':
-          $ref: '#/components/responses/NoSuchDocumentError'
+          $ref: '#/components/responses/NotFoundError'
   /api/document/{id}/children:
     get:
       summary: Get documents that have this document as a parent
@@ -126,7 +138,7 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '404':
-          $ref: '#/components/responses/NoSuchDocumentError'
+          $ref: '#/components/responses/NotFoundError'
     post:
       summary: Create a new child document and set data field
       description: Shorthand to create a child document and set the data field using only one route. This creates the document with default values for fields.
@@ -148,6 +160,10 @@ paths:
                 allOf:
                  - $ref: '#/components/schemas/OkResponse'
                  - $ref: '#/components/schemas/IdOfCreated'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
   /api/document/{id}/data:
     get:
       summary: Get the data associated with this document
@@ -163,6 +179,8 @@ paths:
                 format: binary
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
     put:
       summary: Set the data associated with this document
       parameters:
@@ -183,6 +201,8 @@ paths:
                 $ref: '#/components/schemas/OkResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
 
 components:
   schemas:
@@ -222,14 +242,26 @@ components:
       scheme: bearer
       bearerFormat: jwt
   responses:
-    UnauthorizedError:
-      description: Access token is missing or invalid
+    BadRequestError:
+      description: Content of request is invalid
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
-    NoSuchDocumentError:
-      description: Document not found
+    UnauthorizedError:
+      description: Access token is malformed or invalid
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ForbiddenError:
+      description: You do not have permission to modify this document
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFoundError:
+      description: Document not found or you do not have permission to view it
       content:
         application/json:
           schema:
