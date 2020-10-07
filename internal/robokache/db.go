@@ -124,6 +124,13 @@ func clearDB() error {
 	return err
 }
 
+func makeDefaultDoc() Document {
+	defaultVisibility := private
+	return Document{
+		Visibility: &defaultVisibility,
+	}
+}
+
 func loadSampleData() error {
 	// Helper function to make an address from a constant
 	// The parent field needs to have a pointer to an int
