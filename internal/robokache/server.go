@@ -269,7 +269,7 @@ func SetupRouter() *gin.Engine {
 		}
 
 		// Parse the document from JSON
-		var doc Document
+		doc := makeDefaultDoc()
 		err := c.ShouldBindJSON(&doc)
 		if err != nil {
 			handleErr(c, err)

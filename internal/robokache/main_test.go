@@ -336,6 +336,34 @@ func TestGetNoData(t *testing.T) {
 	assert.Equal(t, "", w.Body.String())
 }
 
+// Check that we can post an empty document and it is valid
+func TestPostEmpty(t *testing.T) {
+	clearDB(); loadSampleData()
+
+	requestBody := `{}`
+	w := performRequest(router, "POST", "/api/document", &signedString, &requestBody)
+	assert.Equal(t, http.StatusCreated, w.Code)
+	var response map[string]interface{}
+	err := json.Unmarshal([]byte(w.Body.String()), &response)
+	assert.Nil(t, err)
+
+	newDocumentIDHash := response["id"].(string)
+
+	newDocumentID, err := hashToID(newDocumentIDHash)
+	assert.Nil(t, err)
+	assert.Greater(t, newDocumentID, 8)
+
+	// Check that the document was created with private visibility
+	w = performRequest(router, "GET",
+			fmt.Sprintf(`/api/document/%s`, newDocumentIDHash),
+			&signedString, &requestBody)
+	err = json.Unmarshal([]byte(w.Body.String()), &response)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Nil(t, err)
+	// JSON response numbers are parsed as floats
+	assert.Equal(t, float64(private), response["visibility"])
+}
+
 // Check that we get 401 error on POST route when not logged in
 func TestPostNotLoggedIn(t *testing.T) {
 	clearDB(); loadSampleData()
