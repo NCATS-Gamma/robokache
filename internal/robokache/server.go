@@ -73,7 +73,8 @@ func SetupRouter() *gin.Engine {
 	r := gin.Default()
 
 	corsConfig := cors.DefaultConfig()
-	corsConfig.AllowOrigins = []string{"http://lvh.me", "http://lvh.me:8080", "https://robokop.renci.org"}
+	corsConfig.AllowOrigins = []string{"http://lvh.me", "http://lvh.me:8080", "http://localhost",
+									   "https://robokop.renci.org", "http://robokop.renci.org:7080"}
 	corsConfig.AllowCredentials = true
 	corsConfig.AllowHeaders =  []string{"Authorization", "Content-Type", "Accept"}
 
