@@ -5,7 +5,6 @@ import (
 	"strings"
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/gin-contrib/cors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -72,13 +71,6 @@ func GetUserEmail(c *gin.Context) (*string) {
 func SetupRouter() *gin.Engine {
 	r := gin.Default()
 
-	corsConfig := cors.DefaultConfig()
-	corsConfig.AllowOrigins = []string{"http://lvh.me", "http://localhost",
-									   "https://robokop.renci.org", "http://robokop.renci.org:7080"}
-	corsConfig.AllowCredentials = true
-	corsConfig.AllowHeaders =  []string{"Authorization", "Content-Type", "Accept"}
-
-	r.Use(cors.New(corsConfig))
 	r.Use(AddUserToContext)
 
 	api := r.Group("/api")

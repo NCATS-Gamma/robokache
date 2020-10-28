@@ -4,3 +4,4 @@ data/
 
 *.out
 robokache.test
+.DS_Store
