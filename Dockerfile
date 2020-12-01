@@ -2,7 +2,8 @@
 FROM golang:latest
 
 # Add Maintainer Info
-LABEL maintainer="Alon Greyber <agreyber@covar.com>"
+LABEL maintainer "Alon Greyber <agreyber@covar.com>"
+LABEL org.opencontainers.image.source https://github.com/NCATS-Gamma/robokache
 
 # Set the Current Working Directory inside the container
 WORKDIR /app

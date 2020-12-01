@@ -17,9 +17,7 @@ jobs:
               uses: docker/build-push-action@v1
               with:
                   username: ${{ github.actor }}
-                  password: ${{ secrets.GITHUB_TOKEN }}
-                  registry: docker.pkg.github.com
-                  # Uppercase letters are not supported so this is all lowercase
-                  repository: ncats-gamma/robokache/build
+                  password: ${{ secrets.CR_PAT }}
+                  registry: ghcr.io
                   tag_with_sha: true
                   tags: main
