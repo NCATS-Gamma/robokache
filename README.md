@@ -9,7 +9,17 @@ Workflow:
 
 ## Getting started
 
-### Docker
+### Prebuilt Images
+
+Prebuilt container images can be found in the following registry: [github.com/orgs/NCATS-Gamma/packages/container/package/robokache](https://github.com/orgs/NCATS-Gamma/packages/container/package/robokache). 
+
+You can pull the latest image using the following command:
+
+```
+docker pull ghcr.io/ncats-gamma/robokache
+```
+
+### Local Docker Build
 
 Build the image:
 
