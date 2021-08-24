@@ -2,15 +2,15 @@ openapi: 3.0.3
 
 info:
   title: Robokache
-  description: Large object document store for ROBOKOP
-  version: 4.1.4
+  description: Large object document store for qgraph
+  version: 4.1.5
   contact:
     email: patrick@covar.com
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
 security:
-  - google: []
+  - bearerAuth: []
 paths:
   /api/document:
     get:
@@ -239,7 +239,7 @@ components:
           type: string
           example: D8JnjJB5
   securitySchemes:
-    google:
+    bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: jwt

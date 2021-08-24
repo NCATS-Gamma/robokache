@@ -1,9 +1,10 @@
 package robokache
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
-	"fmt"
+
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 )
@@ -20,7 +21,7 @@ func init() {
 func handleErr(c *gin.Context, err error) {
 	errorMsg := err.Error()
 	errorResponse := map[string]string{
-		"message" : errorMsg,
+		"message": errorMsg,
 	}
 	if strings.HasPrefix(errorMsg, "Bad Request") {
 		c.JSON(400, errorResponse)
@@ -31,22 +32,25 @@ func handleErr(c *gin.Context, err error) {
 	} else if strings.HasPrefix(errorMsg, "Not Found") {
 		c.JSON(404, errorResponse)
 	} else {
-		log.WithFields(log.Fields{"error" : err}).
-		WithContext(c).
-		Error("Internal Server Error")
+		log.WithFields(log.Fields{"error": err}).
+			WithContext(c).
+			Error("Internal Server Error")
 		// Rewrite error message so that we don't expose it to the user
 		errorResponse["message"] = "Internal Server Error"
 		c.JSON(500, errorResponse)
 	}
 }
 
-
 // AddGUI adds the GUI endpoints
 func AddGUI(r *gin.Engine) {
 	// Serve HTML
 	r.LoadHTMLGlob("./web/index.html")
+	r.Static("/assets", "./web/assets")
 	r.GET("/", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "index.html", nil)
+	})
+	r.GET("/auth_config.json", func(c *gin.Context) {
+		c.JSON(200, gin.H{"domain": "qgraph.us.auth0.com", "clientId": "sgJrK1gGAbzrXwUp0WG7jAV0ivCIF6jr"})
 	})
 
 	// Serve static files (openapi.yml)
@@ -58,7 +62,7 @@ type GetDocumentQuery struct {
 	HasParent *bool `form:"has_parent"`
 }
 
-func GetUserEmail(c *gin.Context) (*string) {
+func GetUserEmail(c *gin.Context) *string {
 	val, ok := c.Get("userEmail")
 	if ok {
 		email, _ := val.(*string)
@@ -71,7 +75,8 @@ func GetUserEmail(c *gin.Context) (*string) {
 func SetupRouter() *gin.Engine {
 	r := gin.Default()
 
-	r.Use(AddUserToContext)
+	// validateUser also adds userEmail to Context
+	r.Use(validateUser)
 
 	api := r.Group("/api")
 
@@ -202,7 +207,7 @@ func SetupRouter() *gin.Engine {
 		userEmail := GetUserEmail(c)
 		if userEmail == nil {
 			handleErr(c,
-			fmt.Errorf("Unauthorized: You must be logged in to add a document."))
+				fmt.Errorf("Unauthorized: You must be logged in to add a document."))
 			return
 		}
 
@@ -221,9 +226,9 @@ func SetupRouter() *gin.Engine {
 			return
 		}
 		newDoc := Document{
-			Parent: &parent.ID,
+			Parent:     &parent.ID,
 			Visibility: parent.Visibility,
-			Owner: *userEmail,
+			Owner:      *userEmail,
 		}
 
 		// Add the document to the database
@@ -257,7 +262,7 @@ func SetupRouter() *gin.Engine {
 		userEmail := GetUserEmail(c)
 		if userEmail == nil {
 			handleErr(c,
-			fmt.Errorf("Unauthorized: You must be logged in to add a document."))
+				fmt.Errorf("Unauthorized: You must be logged in to add a document."))
 			return
 		}
 
@@ -301,7 +306,7 @@ func SetupRouter() *gin.Engine {
 		userEmail := GetUserEmail(c)
 		if userEmail == nil {
 			handleErr(c,
-			fmt.Errorf("Unauthorized: You must be logged in to edit a document."))
+				fmt.Errorf("Unauthorized: You must be logged in to edit a document."))
 			return
 		}
 
@@ -346,74 +351,74 @@ func SetupRouter() *gin.Engine {
 		}
 
 		log.WithFields(
-			log.Fields{"doc" : fmt.Sprintf("%+v", doc)}).Debug("Updating document")
+			log.Fields{"doc": fmt.Sprintf("%+v", doc)}).Debug("Updating document")
 
-			response := make(map[string]string)
-			c.JSON(http.StatusOK, response)
-		})
-		api.PUT("/document/:id/data", func(c *gin.Context) {
-			userEmail := GetUserEmail(c)
-			if userEmail == nil {
-				handleErr(c,
+		response := make(map[string]string)
+		c.JSON(http.StatusOK, response)
+	})
+	api.PUT("/document/:id/data", func(c *gin.Context) {
+		userEmail := GetUserEmail(c)
+		if userEmail == nil {
+			handleErr(c,
 				fmt.Errorf("Unauthorized: You must be logged in to edit a document."))
-				return
-			}
+			return
+		}
 
-			// Get document id
-			id, err := hashToID(c.Param("id"))
-			if err != nil {
-				handleErr(c, err)
-				return
-			}
+		// Get document id
+		id, err := hashToID(c.Param("id"))
+		if err != nil {
+			handleErr(c, err)
+			return
+		}
 
-			// Check we have permission to update this document
-			_, err = GetDocumentForEditing(*userEmail, id)
-			if err != nil {
-				handleErr(c, err)
-				return
-			}
+		// Check we have permission to update this document
+		_, err = GetDocumentForEditing(*userEmail, id)
+		if err != nil {
+			handleErr(c, err)
+			return
+		}
 
-			// Write data to disk
-			err = SetData(id, c.Request.Body)
-			if err != nil {
-				handleErr(c, err)
-				return
-			}
+		// Write data to disk
+		err = SetData(id, c.Request.Body)
+		if err != nil {
+			handleErr(c, err)
+			return
+		}
 
-			response := make(map[string]string)
-			c.JSON(http.StatusOK, response)
-		})
-		api.DELETE("/document/:id", func(c *gin.Context) {
-			userEmail := GetUserEmail(c)
-			if userEmail == nil {
-				handleErr(c,
+		response := make(map[string]string)
+		c.JSON(http.StatusOK, response)
+	})
+	api.DELETE("/document/:id", func(c *gin.Context) {
+		userEmail := GetUserEmail(c)
+		if userEmail == nil {
+			handleErr(c,
 				fmt.Errorf("Unauthorized: You must be logged in to delete a document."))
-				return
-			}
+			return
+		}
 
-			// Get document id
-			id, err := hashToID(c.Param("id"))
-			if err != nil {
-				handleErr(c, err)
-				return
-			}
+		// Get document id
+		id, err := hashToID(c.Param("id"))
+		if err != nil {
+			handleErr(c, err)
+			return
+		}
 
-			// Check we have permission to delete this document
-			existingDoc, err := GetDocumentForEditing(*userEmail, id)
-			if err != nil {
-				handleErr(c, err)
-				return
-			}
+		// Check we have permission to delete this document
+		existingDoc, err := GetDocumentForEditing(*userEmail, id)
+		if err != nil {
+			handleErr(c, err)
+			return
+		}
 
-			err = DeleteDocument(existingDoc)
-			if err != nil {
-				handleErr(c, err)
-				return
-			}
+		err = DeleteDocument(existingDoc)
+		if err != nil {
+			handleErr(c, err)
+			return
+		}
 
-			response := make(map[string]string)
-			c.JSON(http.StatusOK, response)
-		})
-		return r
+		response := make(map[string]string)
+		c.JSON(http.StatusOK, response)
+	})
+	return r
 
 }
