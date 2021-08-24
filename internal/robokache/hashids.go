@@ -1,9 +1,10 @@
 package robokache
 
 import (
-	"github.com/speps/go-hashids"
-	"log"
 	"fmt"
+	"log"
+
+	"github.com/speps/go-hashids"
 )
 
 var hid *hashids.HashID
@@ -24,10 +25,11 @@ func init() {
 func hashToID(hash string) (int, error) {
 	ids, err := hid.DecodeWithError(hash)
 	if err != nil || len(ids) != 1 {
-		return -1, fmt.Errorf("Bad Request: Invalid document ID")
+		return -1, fmt.Errorf("bad request: Invalid document ID")
 	}
 	return ids[0], nil
 }
+
 // Convert an API hash to an integer ID (database primary key)
 func idToHash(id int) (string, error) {
 	hash, err := hid.Encode([]int{id})

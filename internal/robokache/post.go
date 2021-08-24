@@ -1,8 +1,8 @@
 package robokache
 
 import (
-	"fmt"
 	"database/sql"
+	"fmt"
 )
 
 // PostDocument stores a document in the DB. It fails if question.owner != user.
@@ -19,7 +19,7 @@ func PostDocument(doc Document) (int, error) {
 			 `, doc.Parent, doc.Owner, doc.Visibility)
 		err := row.StructScan(&parent)
 		if err == sql.ErrNoRows {
-			return -1, fmt.Errorf("Bad Request: Check that the parent exists and does not have less visibility than the child you are trying to add.")
+			return -1, fmt.Errorf("bad request: Check that the parent exists and does not have less visibility than the child you are trying to add")
 		} else if err != nil {
 			return -1, err
 		}

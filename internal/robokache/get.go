@@ -1,10 +1,10 @@
 package robokache
 
 import (
-	"os"
-	"io"
 	"database/sql"
 	"fmt"
+	"io"
+	"os"
 	"strconv"
 
 	_ "github.com/mattn/go-sqlite3" // makes database/sql point to SQLite
@@ -47,11 +47,10 @@ func GetDocument(userEmail *string, id int) (Document, error) {
 	`, id, userEmail, shareable)
 
 	if err == sql.ErrNoRows {
-		return doc, fmt.Errorf("Not Found: Check that the document exists and that you have permission to view it.")
+		return doc, fmt.Errorf("not found: Check that the document exists and that you have permission to view it")
 	} else if err != nil {
 		return doc, err
 	}
-
 
 	return doc, nil
 }
@@ -63,7 +62,7 @@ func GetDocumentChildren(userEmail *string, id int) ([]Document, error) {
 	err := db.Select(&docs, `
 		SELECT * FROM document
 		WHERE parent=? AND (owner=? OR visibility>=?)`,
-	id, userEmail, shareable)
+		id, userEmail, shareable)
 
 	if err != nil {
 		return docs, err
@@ -78,7 +77,7 @@ func GetData(id int, w io.Writer) error {
 	_, err := os.Stat(filename)
 	if os.IsNotExist(err) {
 		// If the file does not exist write nothing and just return
-	    return nil
+		return nil
 	} else if err != nil {
 		return err
 	}
@@ -111,13 +110,13 @@ func GetDocumentForEditing(userEmail string, id int) (Document, error) {
 
 	// Document does not exist or is not public
 	if err == sql.ErrNoRows ||
-	   (*doc.Visibility < shareable && doc.Owner != userEmail) {
-		return doc, fmt.Errorf("Not Found: Check that the document exists and that you have permission to view it.")
+		(*doc.Visibility < shareable && doc.Owner != userEmail) {
+		return doc, fmt.Errorf("not found: Check that the document exists and that you have permission to view it")
 	}
 
 	// Document exists and is visible to user, but is not public
 	if doc.Owner != userEmail {
-		return doc, fmt.Errorf("Forbidden: You do not have permission to edit this document.")
+		return doc, fmt.Errorf("forbidden: You do not have permission to edit this document")
 	}
 
 	return doc, nil

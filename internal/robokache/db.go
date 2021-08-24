@@ -1,13 +1,14 @@
 package robokache
 
 import (
-	"time"
-	"encoding/json"
 	"database/sql/driver"
+	"encoding/json"
+	"fmt"
+	"os"
+	"time"
+
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3" // makes database/sql point to SQLite
-	"os"
-	"fmt"
 )
 
 // Metadata is enforced to be a map of strings to any values
@@ -27,20 +28,20 @@ func (m Metadata) Scan(value interface{}) error {
 }
 
 type Document struct {
-    // Omit in JSON to prevent exposing primary key
-	ID         int            `db:"id"     json:"-"`
+	// Omit in JSON to prevent exposing primary key
+	ID int `db:"id"     json:"-"`
 	// Replaces ID in JSON, not stored in db
-	Hash       string         `db:"-"      json:"id"`
+	Hash string `db:"-"      json:"id"`
 	// Allow parent to be null using a pointer
-	Parent     *int           `db:"parent" json:"-"`
+	Parent *int `db:"parent" json:"-"`
 	// Replaces parent field in JSON, not stored in db
-	ParentHash string         `db:"-"      json:"parent"`
+	ParentHash string `db:"-"      json:"parent"`
 
 	// Omit in json to prevent exposing user emails
-	Owner      string         `db:"owner" json:"-"`
+	Owner string `db:"owner" json:"-"`
 	// Replaces owner in JSON
-	Owned      bool         `db:"-"     json:"owned"`
-	Visibility *visibility     `db:"visibility" json:"visibility"`
+	Owned      bool        `db:"-"     json:"owned"`
+	Visibility *visibility `db:"visibility" json:"visibility"`
 	// Key value store that contains other data about the object
 	Metadata Metadata `db:"metadata" json:"metadata"`
 	// Creation time field, automatically set
@@ -118,7 +119,7 @@ func (doc *Document) addOwned(owner string) {
 
 func clearDB() error {
 	os.RemoveAll(dataDir + "/files")
-	os.MkdirAll( dataDir + "/files", 0755)
+	os.MkdirAll(dataDir+"/files", 0755)
 
 	_, err := db.Exec(`DELETE FROM document`)
 	return err
@@ -139,18 +140,18 @@ func loadSampleData() error {
 	v := func(s visibility) *visibility { return &s }
 
 	sampleDocuments := []Document{
-		{ID: 0, Parent: nil,  Owner: "me@robokache.com",  Visibility: v(private)},
+		{ID: 0, Parent: nil, Owner: "me@robokache.com", Visibility: v(private)},
 
-		{ID: 1, Parent: nil,  Owner: "me@robokache.com",  Visibility: v(shareable)},
-		{ID: 2, Parent: i(1), Owner: "me@robokache.com",  Visibility: v(shareable)},
-		{ID: 3, Parent: i(1), Owner: "me@robokache.com",  Visibility: v(public)},
+		{ID: 1, Parent: nil, Owner: "me@robokache.com", Visibility: v(shareable)},
+		{ID: 2, Parent: i(1), Owner: "me@robokache.com", Visibility: v(shareable)},
+		{ID: 3, Parent: i(1), Owner: "me@robokache.com", Visibility: v(public)},
 
-		{ID: 4, Parent: nil,  Owner: "you@robokache.com", Visibility: v(public)},
-		{ID: 5, Parent: nil,  Owner: "you@robokache.com", Visibility: v(shareable)},
-		{ID: 6, Parent: nil,  Owner: "you@robokache.com", Visibility: v(private)},
+		{ID: 4, Parent: nil, Owner: "you@robokache.com", Visibility: v(public)},
+		{ID: 5, Parent: nil, Owner: "you@robokache.com", Visibility: v(shareable)},
+		{ID: 6, Parent: nil, Owner: "you@robokache.com", Visibility: v(private)},
 
-		{ID: 7, Parent: i(5),  Owner: "you@robokache.com", Visibility: v(shareable)},
-		{ID: 8, Parent: i(5),  Owner: "you@robokache.com", Visibility: v(public)},
+		{ID: 7, Parent: i(5), Owner: "you@robokache.com", Visibility: v(shareable)},
+		{ID: 8, Parent: i(5), Owner: "you@robokache.com", Visibility: v(public)},
 	}
 
 	for _, doc := range sampleDocuments {
@@ -171,7 +172,7 @@ func mustExistDirectory(dir string) {
 	if os.IsNotExist(err) {
 		err := os.Mkdir(dir, 0755)
 		if err != nil {
-			panic(fmt.Errorf("Failed to create directory %s: %v", dir, err))
+			panic(fmt.Errorf("failed to create directory %s: %v", dir, err))
 		}
 		info, _ = os.Stat(dir)
 	} else if err != nil {
@@ -203,4 +204,3 @@ func init() {
 
 	db.MustExec(sqlStmt)
 }
-

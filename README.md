@@ -1,10 +1,10 @@
 # Robokache
 
-The Q&A store for ROBOKOP.
+The Q&A store for qgraph.
 
 Workflow:
 
-1. authenticate via JWT (Google, Facebook, etc.)
+1. authenticate via JWT (Google, GitHub, etc.)
 2. push/get your files
 
 ## Getting started
@@ -48,13 +48,14 @@ Run:
 >> go run ./cmd
 ```
 
-* Got to <http://lvh.me:8080/>
-* Copy ID token from developer tools into authentication field
+* Go to <http://localhost:8080/>
+* Sign in via the buttons at the top of the page
+* Copy ID token into authentication field
 * Have fun
 
 ## Testing
 
-Set up testing certificate (to emulate Google Auth):
+Set up testing certificate:
 
 ```bash
 >> openssl req -new -newkey rsa:1024 -days 365 -nodes -x509 -keyout test/certs/test.key -out test/certs/test.cert
@@ -71,7 +72,7 @@ Run tests and print coverage:
 
 ### Security
 
-* Google Sign-in
+* Auth0 Sign-in
 * document visibility levels:
   * private (1) - only the owner
   * shareable (2) - anyone with the link

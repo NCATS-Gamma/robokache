@@ -1,8 +1,8 @@
 package robokache
 
 import (
-	"fmt"
 	"database/sql"
+	"fmt"
 	"io"
 	"os"
 	"strconv"
@@ -32,7 +32,7 @@ func EditDocument(doc Document, existing Document) error {
 			 `, doc.Parent, doc.Owner, doc.Visibility)
 		err := row.StructScan(&parent)
 		if err == sql.ErrNoRows {
-			return fmt.Errorf("Bad Request: Check that the parent exists and that you are not changing this document to be more visible than the parent")
+			return fmt.Errorf("bad request: Check that the parent exists and that you are not changing this document to be more visible than the parent")
 		} else if err != nil {
 			return err
 		}

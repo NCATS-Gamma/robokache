@@ -18,7 +18,7 @@ func DeleteDocument(doc Document) error {
 		return err
 	}
 	if rowsDeleted == 0 {
-		return fmt.Errorf("Bad Request: Check that the document exists and belongs to you")
+		return fmt.Errorf("bad request: Check that the document exists and belongs to you")
 	}
 	return nil
 }
