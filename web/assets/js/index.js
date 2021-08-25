@@ -1,4 +1,5 @@
 let auth0 = null;
+let accessToken = '';
 
 window.onload = async () => {
   const ui = SwaggerUIBundle({
@@ -28,7 +29,8 @@ const configureClient = async () => {
   // createAuth0Client comes from CDN
   auth0 = await createAuth0Client({
     domain: config.domain,
-    client_id: config.clientId
+    client_id: config.clientId,
+    audience: config.audience,
   });
 }
 
@@ -48,6 +50,21 @@ const updateUI = async () => {
 
 const login = async () => {
   await auth0.loginWithPopup();
+  const isAuthenticated = await auth0.isAuthenticated();
+  if (isAuthenticated) {
+    try {
+      accessToken = await auth0.getTokenSilently({
+        audience: 'https://qgraph.org/api',
+      });
+    } catch (err) {
+      console.log(err);
+    }
+    if (!accessToken) {
+      window.alert('Failed to get user access token.');
+    } else {
+      console.log(accessToken);
+    }
+  }
   updateUI();
 };
 
@@ -55,6 +72,7 @@ const logout = () => {
   auth0.logout({
     returnTo: window.location.origin
   });
+  accessToken = '';
 };
 
 /**
@@ -62,14 +80,8 @@ const logout = () => {
  * into api docs
  */
 async function copyToClipboard() {
-  const access_token = await auth0.getTokenSilently({
-    audience: 'https://qgraph.org/api',
-    scope: 'read:current_user',
-  });
-  // put the access token in the console as well
-  console.log(access_token);
   const textarea = document.createElement('textarea');
-  textarea.innerHTML = access_token;
+  textarea.innerHTML = accessToken;
   document.body.appendChild(textarea);
   textarea.select();
   // focus is needed in case copying is done from modal

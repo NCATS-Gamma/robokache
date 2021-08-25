@@ -50,7 +50,11 @@ func AddGUI(r *gin.Engine) {
 		c.HTML(http.StatusOK, "index.html", nil)
 	})
 	r.GET("/auth_config.json", func(c *gin.Context) {
-		c.JSON(200, gin.H{"domain": "qgraph.us.auth0.com", "clientId": "sgJrK1gGAbzrXwUp0WG7jAV0ivCIF6jr"})
+		c.JSON(200, gin.H{
+			"domain":   "qgraph.us.auth0.com",
+			"clientId": "sgJrK1gGAbzrXwUp0WG7jAV0ivCIF6jr",
+			"audience": "https://qgraph.org/api",
+		})
 	})
 
 	// Serve static files (openapi.yml)
