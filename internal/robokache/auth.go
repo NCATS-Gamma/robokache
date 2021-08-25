@@ -3,15 +3,29 @@ package robokache
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
-	"io/ioutil"
 	"net/http"
-	"regexp"
 
-	"github.com/dgrijalva/jwt-go"
+	jwtmiddleware "github.com/auth0/go-jwt-middleware"
+	"github.com/form3tech-oss/jwt-go"
 	"github.com/gin-gonic/gin"
-	_ "github.com/mattn/go-sqlite3" // makes database/sql point to SQLite
 )
+
+type Response struct {
+	Message string `json:"message"`
+}
+
+type Jwks struct {
+	Keys []JSONWebKeys `json:"keys"`
+}
+
+type JSONWebKeys struct {
+	Kty string   `json:"kty"`
+	Kid string   `json:"kid"`
+	Use string   `json:"use"`
+	N   string   `json:"n"`
+	E   string   `json:"e"`
+	X5c []string `json:"x5c"`
+}
 
 // HTTPClient implements Get()
 type HTTPClient interface {
@@ -27,100 +41,91 @@ func init() {
 	Client = &http.Client{}
 }
 
-func issuedByGoogle(claims *jwt.MapClaims) bool {
-	return claims.VerifyIssuer("accounts.google.com", true) ||
-		claims.VerifyIssuer("https://accounts.google.com", true)
-}
+func validateUser(c *gin.Context) {
+	jwtMiddleware := jwtmiddleware.New(jwtmiddleware.Options{
+		ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
+			// Verify 'aud' claim
+			audience := "https://qgraph.org/api"
 
-// Gets bearer (JWT) token from header
-// Only fails if the header is present and invalid
-func GetRequestBearerToken(c *gin.Context) (string, error) {
-	matchBearer := regexp.MustCompile("^Bearer\\s([\\w.-]+)$")
+			// bug in form3tech-oss/jwt-go that doesn't accept list of audiences
+			// need to convert to list because auth0 sends one
+			// copied from https://github.com/leoromanovsky/golang-gin/pull/1/commits/eab87202b4a38471ee5744a879cd342a636d7990
+			claims, ok := token.Claims.(jwt.MapClaims)
+			if !ok {
+				return token, errors.New("invalid claims type")
+			}
 
-	header := c.Request.Header
-	authorizationHeader := header.Get("Authorization")
-	if authorizationHeader == "" {
-		return "", nil
-	}
+			if audienceList, ok := claims["aud"].([]interface{}); ok {
+				auds := make([]string, len(audienceList))
+				for _, aud := range audienceList {
+					audStr, ok := aud.(string)
+					if !ok {
+						return token, errors.New("invalid audience type")
+					}
+					auds = append(auds, audStr)
+				}
+				claims["aud"] = auds
+			}
 
-	bearer := matchBearer.FindStringSubmatch(authorizationHeader)
-	if bearer == nil {
-		return "", fmt.Errorf("Invalid Authorization header formatting")
-	}
+			checkAudience := token.Claims.(jwt.MapClaims).VerifyAudience(audience, false)
+			if !checkAudience {
+				return token, errors.New("invalid audience")
+			}
+			// Verify 'iss' claim
+			iss := "https://qgraph.us.auth0.com/"
+			checkIss := token.Claims.(jwt.MapClaims).VerifyIssuer(iss, false)
+			if !checkIss {
+				return token, errors.New("invalid issuer")
+			}
 
-	return bearer[1], nil
-}
+			cert, err := getPemCert(token)
+			if err != nil {
+				panic(err.Error())
+			}
 
-// Verifies authorization and sets the userEmail context
-func GetUser(reqToken string) (*string, error) {
-	// Verify token authenticity
-	token, err := jwt.ParseWithClaims(reqToken, &jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
-		resp, err := Client.Get("https://www.googleapis.com/oauth2/v1/certs")
-		if err != nil {
-			return nil, err
-		}
-		if resp.StatusCode != 200 {
-			return nil, errors.New("Failed to contact certification authority")
-		}
-		defer resp.Body.Close()
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-		var certs map[string]string
-		json.Unmarshal(body, &certs)
-		pem := certs[token.Header["kid"].(string)]
-		verifyKey, err := jwt.ParseRSAPublicKeyFromPEM([]byte(pem))
-		if err != nil {
-			return nil, err
-		}
-		return verifyKey, nil
+			// set user email for document permissions
+			userEmail := claims["https://qgraph.org/email"].(string)
+			c.Set("userEmail", &userEmail)
+
+			result, _ := jwt.ParseRSAPublicKeyFromPEM([]byte(cert))
+			return result, nil
+		},
+		// Requests don't need a JWT
+		CredentialsOptional: true,
+		SigningMethod:       jwt.SigningMethodRS256,
 	})
-	if err != nil {
-		return nil, err
+	if err := jwtMiddleware.CheckJWT(c.Writer, c.Request); err != nil {
+		c.AbortWithStatus(401)
 	}
-
-	// Verify claims
-	claims, ok := token.Claims.(*jwt.MapClaims)
-	if !ok {
-		return nil, errors.New("token.Claims -> *jwt.MapClaims assertion failed")
-	}
-	if !token.Valid {
-		return nil, errors.New("INVALID iat/nbt/exp")
-	}
-	if !claims.VerifyAudience("297705140796-41v2ra13t7mm8uvu2dp554ov1btt80dg.apps.googleusercontent.com", true) {
-		return nil, fmt.Errorf("INVALID aud: %s", (*claims)["aud"])
-	}
-	if !issuedByGoogle(claims) {
-		return nil, fmt.Errorf("INVALID iss: %s", (*claims)["iss"])
-	}
-
-	userEmail := (*claims)["email"].(string)
-
-	return &userEmail, nil
+	c.Next()
 }
 
-// Runs GetUser and GetRequestBearerToken and puts the results
-// in the Gin context.
-func AddUserToContext(c *gin.Context) {
-	reqToken, err := GetRequestBearerToken(c)
+func getPemCert(token *jwt.Token) (string, error) {
+	cert := ""
+	resp, err := Client.Get("https://qgraph.us.auth0.com/.well-known/jwks.json")
+
 	if err != nil {
-		handleErr(c, fmt.Errorf("Unauthorized: %v", err))
-		c.Abort()
-		return
+		return cert, err
 	}
-	if reqToken == "" {
-		c.Next()
-		return
-	}
-	userEmail, err := GetUser(reqToken)
+	defer resp.Body.Close()
+
+	var jwks = Jwks{}
+	err = json.NewDecoder(resp.Body).Decode(&jwks)
+
 	if err != nil {
-		handleErr(c, fmt.Errorf("Unauthorized: %v", err))
-		c.Abort()
-		return
+		return cert, err
 	}
 
-	// Set user email on context and continue middleware chain
-	c.Set("userEmail", userEmail)
-	c.Next()
+	for k := range jwks.Keys {
+		if token.Header["kid"] == jwks.Keys[k].Kid {
+			cert = "-----BEGIN CERTIFICATE-----\n" + jwks.Keys[k].X5c[0] + "\n-----END CERTIFICATE-----"
+		}
+	}
+
+	if cert == "" {
+		err := errors.New("unable to find appropriate key")
+		return cert, err
+	}
+
+	return cert, nil
 }

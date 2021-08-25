@@ -4,4 +4,6 @@ data/
 
 *.out
 robokache.test
+
+.vscode
 .DS_Store
