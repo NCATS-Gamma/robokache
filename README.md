@@ -31,7 +31,7 @@ Run the image:
 
 
 ```bash
->> docker run -it --name robokache -p 8080:80 robokache
+>> docker run -it --name robokache -p 8080:8080 robokache
 ```
 
 ### Native

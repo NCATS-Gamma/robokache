@@ -6,5 +6,5 @@ func main() {
 
 	r := robokache.SetupRouter()
 	robokache.AddGUI(r)
-	r.Run(":80") // listen and serve on 0.0.0.0:80 (for windows "localhost:80")
+	r.Run(":8080") // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
