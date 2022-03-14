@@ -1,8 +1,6 @@
-# Start from the latest golang base image
-FROM golang:latest
+FROM golang:1.17.8-bullseye
 
 # Add Maintainer Info
-LABEL maintainer "Alon Greyber <agreyber@covar.com>"
 LABEL org.opencontainers.image.source https://github.com/NCATS-Gamma/robokache
 
 # Set the Current Working Directory inside the container
